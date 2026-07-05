@@ -1,0 +1,15 @@
+numpy
+scipy
+pandas
+matplotlib
+seaborn
+opencv-python
+Pillow
+tqdm
+scikit-learn
+jupyter
+notebook
+torch
+torchvision
+h5py
+scikit-image
