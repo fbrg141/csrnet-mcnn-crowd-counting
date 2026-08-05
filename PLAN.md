@@ -5,12 +5,11 @@
 - [x] potvrđena tema projekta
 - [x] izabrani modeli: MCNN i CSRNet
 - [x] kreiran README
-- [ ] preuzeti dataset lokalno
-- [ ] proveriti strukturu fajlova
-- [ ] analizirati anotacije
-- [ ] utvrditi da li anotacije mogu da se koriste za generisanje density mapa
+- [ ] preuzeti ShanghaiTech dataset
+- [ ] proveriti .mat anotacije (head annotations)
+- [ ] napisati skriptu za generisanje density mapa
 - [ ] napraviti prvi notebook za vizualizaciju primera
-- [ ] definisati train/validation/test split ako nije već dat
+- [ ] definisati train/validation/test split
 
 **Deliverable:** dokumentovan dataset pipeline i prvi notebook sa analizom podataka.
 **Timeline:** 1–2 dana
