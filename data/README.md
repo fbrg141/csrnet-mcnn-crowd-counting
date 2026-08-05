@@ -11,6 +11,14 @@ Dataset: **ShanghaiTech** (Part A and Part B)
 
 Link: https://www.kaggle.com/datasets/tthien/shanghaitech
 
+## Preuzimanje
+
+```bash
+# One-liner:
+pip install kagglehub
+python scripts/download_data.py
+```
+
 ## Sadržaj dataseta
 
 | Stavka | Vrednost |
@@ -41,23 +49,6 @@ data/raw/
 ```
 
 ## Preuzimanje
-
-### Opcija 1: kagglehub (preporučeno)
-```bash
-pip install kagglehub
-python3 -c "
-import kagglehub
-path = kagglehub.dataset_download('hosammhmdali/shanghai-tech-dataset-part-a-and-part-b')
-print('Preuzeto na:', path)
-"
-cp -R "$path"/* data/raw/
-```
-
-### Opcija 2: Kaggle CLI
-```bash
-pip install kaggle
-kaggle datasets download hosammhmdali/shanghai-tech-dataset-part-a-and-part-b -p data/raw/ --unzip
-```
 
 ## Napomena
 Dataset ne ide u git (ignorisan u `.gitignore`). Samo ovaj README fajl se čuva u repozitorijumu.

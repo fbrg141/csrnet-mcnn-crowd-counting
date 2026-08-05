@@ -5,7 +5,7 @@
 - [x] potvrđena tema projekta
 - [x] izabrani modeli: MCNN i CSRNet
 - [x] kreiran README
-- [ ] preuzeti ShanghaiTech dataset
+- [x] preuzeti ShanghaiTech dataset
 - [ ] proveriti .mat anotacije (head annotations)
 - [ ] napisati skriptu za generisanje density mapa
 - [ ] napraviti prvi notebook za vizualizaciju primera

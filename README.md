@@ -17,9 +17,14 @@ Zbog toga su modeli kao što su MCNN i CSRNet pogodniji od standardnih YOLO pris
 
 ## Skup podataka
 Korišćen dataset:
-- Kaggle: https://www.kaggle.com/datasets/fmena14/crowd-counting
+- **ShanghaiTech** (Part A & Part B): https://www.kaggle.com/datasets/tthien/shanghaitech
 
-Napomena: u okviru projekta biće analiziran format anotacija i provereno da li su potrebne dodatne transformacije za generisanje density mapa.
+| Deo | Slike | Opis |
+|-----|-------|------|
+| Part A | 482 (300 train, 182 test) | Guste gužve, do ~3000 ljudi po slici |
+| Part B | 716 (400 train, 316 test) | Ređe scene, do ~500 ljudi po slici |
+
+Anotacije su (x, y) koordinate glava u `.mat` fajlovima.
 
 ## Cilj rada
 Glavni cilj projekta je:
@@ -82,6 +87,12 @@ source .venv/bin/activate
 ### 3. Instalacija zavisnosti
 ```bash
 pip install -r requirements.txt
+```
+
+### 4. Preuzimanje dataseta
+```bash
+pip install kagglehub
+python scripts/download_data.py
 ```
 
 ## Trenutni status
