@@ -38,6 +38,13 @@ class CrowdCountingDataset(Dataset):
         target_size: If set, resize image and scale coordinates to this (H, W).
                      If None, keep original size.
         val_split: Fraction of training set to hold out for validation (0.0 = no val).
+        downsample_factor: Factor by which to reduce the density-map resolution
+                     relative to the (possibly resized) image, to match model
+                     output strides (e.g. 4 for MCNN, 8 for CSRNet). When > 1,
+                     head coordinates are scaled by 1/factor, the density map
+                     is generated at (H//factor, W//factor), and the fixed-mode
+                     sigma is scaled by 1/factor so the Gaussian width matches.
+                     When 1 (default), behaviour is unchanged.
     """
 
     def __init__(
@@ -51,12 +58,17 @@ class CrowdCountingDataset(Dataset):
         beta: float = 0.3,
         target_size: tuple[int, int] | None = None,
         val_split: float = 0.0,
+        downsample_factor: int = 1,
     ) -> None:
         part = part.upper()
         if part not in ("A", "B"):
             raise ValueError(f"part must be 'A' or 'B', got {part!r}")
         if split not in ("train", "test", "val"):
             raise ValueError(f"split must be 'train', 'test', or 'val', got {split!r}")
+        if not isinstance(downsample_factor, int) or downsample_factor < 1:
+            raise ValueError(
+                f"downsample_factor must be a positive integer, got {downsample_factor!r}"
+            )
 
         self.root = Path(root)
         self.part = part
@@ -66,6 +78,7 @@ class CrowdCountingDataset(Dataset):
         self.k = k
         self.beta = beta
         self.target_size = target_size
+        self.downsample_factor = downsample_factor
 
         # Paths
         split_name = "train_data" if split in ("train", "val") else "test_data"
@@ -123,11 +136,31 @@ class CrowdCountingDataset(Dataset):
         else:
             h, w = orig_h, orig_w
 
+        # Downsample the density map to match the model output stride.
+        # The image itself stays at full resolution; only the target density
+        # map (and the head coordinates used to build it) are scaled down.
+        if self.downsample_factor > 1:
+            factor = self.downsample_factor
+            h_dens = h // factor
+            w_dens = w // factor
+            if h_dens < 1 or w_dens < 1:
+                raise ValueError(
+                    f"downsample_factor={factor} reduces {h}x{w} below 1 pixel; "
+                    "use a smaller factor or a larger target_size"
+                )
+            points = points.copy()
+            points[:, 0] /= factor
+            points[:, 1] /= factor
+            sigma = self.sigma / factor
+        else:
+            h_dens, w_dens = h, w
+            sigma = self.sigma
+
         # Generate density map
         if self.density_mode == "fixed":
-            density = fixed_sigma_density_map(points, h, w, sigma=self.sigma)
+            density = fixed_sigma_density_map(points, h_dens, w_dens, sigma=sigma)
         elif self.density_mode == "adaptive":
-            density = adaptive_density_map(points, h, w, k=self.k, beta=self.beta)
+            density = adaptive_density_map(points, h_dens, w_dens, k=self.k, beta=self.beta)
         else:
             raise ValueError(f"Unknown density_mode: {self.density_mode}")
 
