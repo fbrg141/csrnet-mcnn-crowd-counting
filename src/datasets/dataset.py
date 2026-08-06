@@ -10,6 +10,26 @@ from torch.utils.data import Dataset
 
 from src.datasets.density_map import adaptive_density_map, fixed_sigma_density_map
 
+# ImageNet statistics expected by pretrained VGG frontends (e.g. CSRNet's
+# VGG16 backbone). Inputs are first scaled to [0, 1] via /255.0, then
+# standardized with these per-channel mean/std (RGB order).
+IMAGENET_MEAN = (0.485, 0.456, 0.406)
+IMAGENET_STD = (0.229, 0.224, 0.225)
+
+
+def normalize_imagenet(image: torch.Tensor) -> torch.Tensor:
+    """Apply per-channel ImageNet normalization to a (C, H, W) float tensor.
+
+    The input is assumed to already be in [0, 1] (i.e. after /255.0).
+    Returns a new tensor standardized with ImageNet mean/std.
+    """
+    if image.ndim != 3 or image.shape[0] != 3:
+        raise ValueError(f"expected a (3, H, W) tensor, got shape {tuple(image.shape)}")
+    mean = torch.tensor(IMAGENET_MEAN, device=image.device, dtype=image.dtype).view(3, 1, 1)
+    std = torch.tensor(IMAGENET_STD, device=image.device, dtype=image.dtype).view(3, 1, 1)
+    return (image - mean) / std
+
+
 # Map from part name to (train_count, test_count)
 PART_INFO = {
     "A": (300, 182),
@@ -45,6 +65,9 @@ class CrowdCountingDataset(Dataset):
                      is generated at (H//factor, W//factor), and the fixed-mode
                      sigma is scaled by 1/factor so the Gaussian width matches.
                      When 1 (default), behaviour is unchanged.
+        normalize: If True, apply ImageNet normalization (mean=[0.485, 0.456,
+            0.406], std=[0.229, 0.224, 0.225]) after dividing by 255.0. Required
+            for CSRNet's pretrained VGG16 frontend; leave False otherwise.
     """
 
     def __init__(
@@ -59,6 +82,7 @@ class CrowdCountingDataset(Dataset):
         target_size: tuple[int, int] | None = None,
         val_split: float = 0.0,
         downsample_factor: int = 1,
+        normalize: bool = False,
     ) -> None:
         part = part.upper()
         if part not in ("A", "B"):
@@ -79,6 +103,7 @@ class CrowdCountingDataset(Dataset):
         self.beta = beta
         self.target_size = target_size
         self.downsample_factor = downsample_factor
+        self.normalize = normalize
 
         # Paths
         split_name = "train_data" if split in ("train", "val") else "test_data"
@@ -166,6 +191,12 @@ class CrowdCountingDataset(Dataset):
 
         # Convert to tensors
         image_tensor = torch.from_numpy(np.array(image)).permute(2, 0, 1).float() / 255.0
+
+        # ImageNet normalization for pretrained VGG frontend (CSRNet).
+        # Applied after /255.0 so the values are in [0, 1] before normalizing.
+        if self.normalize:
+            image_tensor = normalize_imagenet(image_tensor)
+
         density_tensor = torch.from_numpy(density).unsqueeze(0).float()
 
         return image_tensor, density_tensor
