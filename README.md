@@ -1,115 +1,115 @@
-# Komparativna analiza modela CSRNet i MCNN za prebrojavanje osoba na slikama
+# Comparative Analysis of CSRNet and MCNN Models for Crowd Counting
 
-## Članovi tima
+## Team Members
 - Uroš Dimitrijević
 - Miloš Kutlešić
 
-## Opis projekta
-Ovaj projekat se bavi problemom **prebrojavanja osoba na slikama** (*crowd counting*), sa fokusom na uporednu analizu dve neuronske arhitekture:
+## Project Description
+This project addresses the problem of **crowd counting in images**, focusing on a comparative analysis of two neural network architectures:
 - **MCNN (Multi-Column Convolutional Neural Network)**
 - **CSRNet (Congested Scene Recognition Network)**
 
-Cilj je da se ispita kako se ove dve arhitekture ponašaju na zadatku procene broja ljudi na fotografijama sa gužvom, koristeći odgovarajući skup podataka za crowd counting.
+The goal is to investigate how these two architectures perform on the task of estimating the number of people in crowd images, using an appropriate crowd counting dataset.
 
-## Motivacija
-Za razliku od klasične detekcije objekata, gde se svaka osoba lokalizuje bounding box-om, crowd counting pristup je pogodniji za scene sa velikom gustinom ljudi, delimičnim preklapanjem i otežanom detekcijom pojedinačnih objekata.
-Zbog toga su modeli kao što su MCNN i CSRNet pogodniji od standardnih YOLO pristupa za ovaj problem.
+## Motivation
+Unlike classical object detection, where each person is localized with a bounding box, the crowd counting approach is better suited for scenes with high people density, partial occlusion, and difficult detection of individual objects.
+For this reason, models such as MCNN and CSRNet are more suitable than standard YOLO approaches for this problem.
 
-## Skup podataka
-Korišćen dataset:
+## Dataset
+Dataset used:
 - **ShanghaiTech** (Part A & Part B): https://www.kaggle.com/datasets/tthien/shanghaitech
 
-| Deo | Slike | Opis |
-|-----|-------|------|
-| Part A | 482 (300 train, 182 test) | Guste gužve, do ~3000 ljudi po slici |
-| Part B | 716 (400 train, 316 test) | Ređe scene, do ~500 ljudi po slici |
+| Part | Images | Description |
+|------|--------|-------------|
+| Part A | 482 (300 train, 182 test) | Dense crowds, up to ~3000 people per image |
+| Part B | 716 (400 train, 316 test) | Sparser scenes, up to ~500 people per image |
 
-Anotacije su (x, y) koordinate glava u `.mat` fajlovima.
+Annotations are (x, y) head coordinates stored in `.mat` files.
 
-## Cilj rada
-Glavni cilj projekta je:
-1. analizirati dataset za crowd counting,
-2. implementirati ili prilagoditi modele **MCNN** i **CSRNet**,
-3. trenirati modele pod istim uslovima,
-4. uporediti njihove performanse pomoću standardnih metrika,
-5. izvesti zaključak o tome koji model daje bolje rezultate za posmatrani problem.
+## Project Goals
+The main objectives of the project are:
+1. analyze the crowd counting dataset,
+2. implement or adapt the **MCNN** and **CSRNet** models,
+3. train the models under the same conditions,
+4. compare their performance using standard metrics,
+5. draw a conclusion about which model gives better results for the problem at hand.
 
-## Istraživačko pitanje
-Koji od modela, **MCNN** ili **CSRNet**, daje bolje rezultate na zadatku prebrojavanja osoba na slikama, posmatrano kroz tačnost procene i stabilnost rada na izabranom skupu podataka?
+## Research Question
+Which model, **MCNN** or **CSRNet**, gives better results on the task of crowd counting in images, in terms of estimation accuracy and stability on the selected dataset?
 
-## Modeli
+## Models
 ### MCNN
-MCNN koristi više paralelnih konvolucionih grana sa različitim receptive field-ovima kako bi obradio scene sa različitim gustinama ljudi.
+MCNN uses multiple parallel convolutional branches with different receptive fields to handle scenes with varying crowd densities.
 
 ### CSRNet
-CSRNet koristi dublju arhitekturu sa dilatiranim konvolucijama i poznat je po dobrim rezultatima na crowd counting zadacima, posebno u scenama sa velikom gustinom ljudi.
+CSRNet uses a deeper architecture with dilated convolutions and is known for strong results on crowd counting tasks, particularly in scenes with high crowd density.
 
-## Metrike evaluacije
-Za poređenje modela koristiće se sledeće metrike:
+## Evaluation Metrics
+The following metrics will be used to compare the models:
 - **MAE (Mean Absolute Error)**
 - **RMSE (Root Mean Squared Error)**
 
-Po potrebi će dodatno biti razmotreno:
-- vreme treniranja,
-- vreme inferencije,
-- broj parametara modela.
+Additionally, the following may be considered:
+- training time,
+- inference time,
+- number of model parameters.
 
-## Plan rada
-1. Preuzimanje i analiza dataseta  
-2. Priprema pipeline-a za učitavanje podataka i anotacija  
-3. Implementacija/prilagođavanje MCNN modela  
-4. Implementacija/prilagođavanje CSRNet modela  
-5. Trening i evaluacija modela  
-6. Uporedna analiza rezultata  
-7. Pisanje izveštaja i priprema prezentacije  
+## Work Plan
+1. Download and analyze the dataset
+2. Prepare the data loading and annotation pipeline
+3. Implement/adapt the MCNN model
+4. Implement/adapt the CSRNet model
+5. Train and evaluate the models
+6. Comparative analysis of results
+7. Write the report and prepare the presentation
 
-## Struktura projekta
+## Project Structure
 ```text
-data/       - skup podataka i priprema podataka
-notebooks/  - istraživačke analize i vizualizacije
-src/        - glavni kod projekta
-reports/    - beleške, slike, rezultati i skice izveštaja
+data/       - dataset and data preparation
+notebooks/  - exploratory analysis and visualizations
+src/        - main project source code
+reports/    - notes, images, results, and report drafts
 ```
 
-## Pokretanje projekta
-### 1. Kloniranje repozitorijuma
+## Running the Project
+### 1. Clone the repository
 ```bash
-git clone <LINK_DO_REPOA>
+git clone <REPO_LINK>
 cd crowd-counting-csrnet-mcnn
 ```
 
-### 2. Kreiranje virtuelnog okruženja
+### 2. Create a virtual environment
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-### 3. Instalacija zavisnosti
+### 3. Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Preuzimanje dataseta
+### 4. Download the dataset
 ```bash
 pip install kagglehub
 python scripts/download_data.py
 ```
 
-## Trenutni status
-Projekat je u početnoj fazi:
-- [x] definisana tema
-- [x] izabran skup podataka
-- [ ] analiza anotacija i priprema podataka
-- [ ] implementacija MCNN
-- [ ] implementacija CSRNet
-- [ ] trening i evaluacija
-- [ ] završni izveštaj
+## Current Status
+The project is in its initial phase:
+- [x] topic defined
+- [x] dataset selected
+- [ ] annotation analysis and data preparation
+- [ ] MCNN implementation
+- [ ] CSRNet implementation
+- [ ] training and evaluation
+- [ ] final report
 
-## Očekivani rezultat
-Na kraju projekta očekuje se:
-- funkcionalna implementacija oba modela,
-- eksperimentalno poređenje performansi,
-- jasan zaključak o prednostima i manama MCNN i CSRNet pristupa na izabranom datasetu.
+## Expected Outcome
+By the end of the project, the expected deliverables are:
+- a functional implementation of both models,
+- an experimental comparison of their performance,
+- a clear conclusion about the advantages and disadvantages of the MCNN and CSRNet approaches on the selected dataset.
 
-## Napomena
-Ovaj repozitorijum predstavlja studentski projekat iz mašinskog učenja i služi za eksperimentalnu uporednu analizu modela za crowd counting.
+## Note
+This repository is a student project for a machine learning course and serves as an experimental comparative analysis of crowd counting models.
