@@ -150,7 +150,7 @@ class CrowdCountingDataset(Dataset):
         # Resize if requested
         if self.target_size is not None:
             target_h, target_w = self.target_size
-            image = image.resize((target_w, target_h), Image.BILINEAR)
+            image = image.resize((target_w, target_h), Image.Resampling.BILINEAR)
             # Scale coordinates
             scale_x = target_w / orig_w
             scale_y = target_h / orig_h
