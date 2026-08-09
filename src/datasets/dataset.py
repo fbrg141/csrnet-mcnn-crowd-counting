@@ -8,6 +8,16 @@ import torch
 from PIL import Image
 from torch.utils.data import Dataset
 
+from src.config import (
+    ADAPTIVE_BETA,
+    ADAPTIVE_K,
+    DEFAULT_DENSITY_MODE,
+    DEFAULT_IMAGE_SIZE,
+    DEFAULT_PART,
+    FIXED_SIGMA,
+    SHANGHAITECH_DIR,
+    VAL_SPLIT,
+)
 from src.datasets.density_map import adaptive_density_map, fixed_sigma_density_map
 
 # ImageNet statistics expected by pretrained VGG frontends (e.g. CSRNet's
@@ -132,6 +142,43 @@ class CrowdCountingDataset(Dataset):
         else:
             self.images = all_images
             self.gts = all_gts
+
+    @classmethod
+    def from_config(
+        cls,
+        part: str = DEFAULT_PART,
+        split: str = "train",
+        downsample_factor: int = 1,
+        normalize: bool = False,
+        root: str | Path | None = None,
+    ) -> "CrowdCountingDataset":
+        """Create a dataset using defaults from src.config.
+
+        Model-specific parameters (downsample_factor, normalize) must be
+        passed explicitly since they depend on the model:
+        - MCNN:    downsample_factor=4,  normalize=False
+        - CSRNet:  downsample_factor=8,  normalize=True
+
+        Args:
+            part: "A" or "B" (defaults to config.DEFAULT_PART).
+            split: "train", "val", or "test".
+            downsample_factor: Reduce density map resolution (4 for MCNN, 8 for CSRNet).
+            normalize: Apply ImageNet normalization (True for CSRNet, False for MCNN).
+            root: Dataset root path (defaults to config.SHANGHAITECH_DIR).
+        """
+        return cls(
+            root=root or SHANGHAITECH_DIR,
+            part=part,
+            split=split,
+            density_mode=DEFAULT_DENSITY_MODE,
+            sigma=FIXED_SIGMA,
+            k=ADAPTIVE_K,
+            beta=ADAPTIVE_BETA,
+            target_size=DEFAULT_IMAGE_SIZE,
+            val_split=VAL_SPLIT,
+            downsample_factor=downsample_factor,
+            normalize=normalize,
+        )
 
     def __len__(self) -> int:
         return len(self.images)
