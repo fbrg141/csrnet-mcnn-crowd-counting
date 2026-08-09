@@ -41,8 +41,12 @@ Which model, **MCNN** or **CSRNet**, gives better results on the task of crowd c
 ### MCNN
 MCNN uses multiple parallel convolutional branches with different receptive fields to handle scenes with varying crowd densities.
 
+Paper: [Single-Image Crowd Counting via Multi-Column Convolutional Neural Network](https://arxiv.org/abs/1602.05931) (Zhang et al., CVPR 2016)
+
 ### CSRNet
 CSRNet uses a deeper architecture with dilated convolutions and is known for strong results on crowd counting tasks, particularly in scenes with high crowd density.
+
+Paper: [CSRNet: Dilated Convolutional Neural Networks for Understanding the Highly Congested Scenes](https://arxiv.org/abs/1802.10062) (Li et al., CVPR 2018)
 
 ## Evaluation Metrics
 The following metrics will be used to compare the models:
@@ -96,13 +100,15 @@ python scripts/download_data.py
 ```
 
 ## Current Status
-The project is in its initial phase:
 - [x] topic defined
-- [x] dataset selected
-- [ ] annotation analysis and data preparation
-- [ ] MCNN implementation
-- [ ] CSRNet implementation
-- [ ] training and evaluation
+- [x] dataset selected (ShanghaiTech)
+- [x] dataset download script (`scripts/download_data.py`)
+- [x] annotation analysis and density-map generation (`src/datasets/density_map.py`, `src/datasets/dataset.py`)
+- [x] exploratory notebooks (`notebooks/01_dataset_inspection.ipynb`, `notebooks/02_density_maps.ipynb`)
+- [x] dataset loader + normalization/downsample tests
+- [ ] MCNN implementation (currently a placeholder in `src/models/mcnn.py`)
+- [ ] CSRNet implementation (currently a placeholder in `src/models/csrnet.py`)
+- [ ] training and evaluation (`src/train.py`, `src/evaluate.py` are placeholders)
 - [ ] final report
 
 ## Expected Outcome
