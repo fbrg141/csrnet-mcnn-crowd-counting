@@ -41,7 +41,7 @@ Which model, **MCNN** or **CSRNet**, gives better results on the task of crowd c
 ### MCNN
 MCNN uses multiple parallel convolutional branches with different receptive fields to handle scenes with varying crowd densities.
 
-Paper: [Single-Image Crowd Counting via Multi-Column Convolutional Neural Network](https://arxiv.org/abs/1602.05931) (Zhang et al., CVPR 2016)
+Paper: [Single-Image Crowd Counting via Multi-Column Convolutional Neural Network](https://openaccess.thecvf.com/content_cvpr_2016/html/Zhang_Single-Image_Crowd_Counting_CVPR_2016_paper.html) (Zhang et al., CVPR 2016)
 
 ### CSRNet
 CSRNet uses a deeper architecture with dilated convolutions and is known for strong results on crowd counting tasks, particularly in scenes with high crowd density.
