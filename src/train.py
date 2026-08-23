@@ -48,9 +48,10 @@ def set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def experiment_stem(model_name: str, part: str, seed: int) -> str:
+def experiment_stem(model_name: str, part: str, seed: int, smoke: bool = False) -> str:
     """Return the shared filename stem for one experimental run."""
-    return f"{model_name}_part{part}_seed{seed}"
+    stem = f"{model_name}_part{part}_seed{seed}"
+    return f"{stem}_smoke" if smoke else stem
 
 
 # --------------------------------------------------------------------------------------
@@ -253,7 +254,9 @@ def main(argv: list[str] | None = None) -> None:
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    ckpt_path = out_dir / f"{experiment_stem(args.model, args.part, args.seed)}_best.pth"
+    ckpt_path = out_dir / (
+        f"{experiment_stem(args.model, args.part, args.seed, smoke=args.smoke)}_best.pth"
+    )
 
     best_val_mae = math.inf
     for epoch in range(1, args.epochs + 1):
@@ -270,7 +273,8 @@ def main(argv: list[str] | None = None) -> None:
         if val_mae < best_val_mae:
             best_val_mae = val_mae
             torch.save(
-                {"epoch": epoch, "model": args.model, "state_dict": model.state_dict(),
+                {"epoch": epoch, "model": args.model, "part": args.part,
+                 "state_dict": model.state_dict(),
                  "seed": args.seed, "val_mae": val_mae, "val_rmse": val_rmse},
                 ckpt_path,
             )

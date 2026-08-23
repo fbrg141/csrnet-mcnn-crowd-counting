@@ -1,8 +1,10 @@
 import random
 
 import numpy as np
+import pytest
 import torch
 
+from src.evaluate import load_checkpoint
 from src.train import experiment_stem, set_seed
 
 
@@ -25,3 +27,12 @@ def test_set_seed_repeats_python_numpy_and_torch_sequences() -> None:
 def test_experiment_stem_includes_model_part_and_seed() -> None:
     assert experiment_stem("mcnn", "A", 42) == "mcnn_partA_seed42"
     assert experiment_stem("csrnet", "B", 2026) == "csrnet_partB_seed2026"
+    assert experiment_stem("mcnn", "A", 42, smoke=True) == "mcnn_partA_seed42_smoke"
+
+
+def test_load_checkpoint_rejects_wrong_dataset_part(tmp_path) -> None:
+    path = tmp_path / "checkpoint.pth"
+    torch.save({"model": "mcnn", "part": "A", "seed": 42}, path)
+
+    with pytest.raises(ValueError, match="checkpoint part='A' != requested 'B'"):
+        load_checkpoint(path, "mcnn", "B")

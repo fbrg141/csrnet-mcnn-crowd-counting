@@ -230,6 +230,8 @@ optimizer is SGD with momentum 0.95. Per epoch it logs train loss/MAE/RMSE
 and validation MAE/RMSE, and checkpoints the best-validation-MAE `state_dict` to
 `reports/checkpoints/<model>_part<part>_seed<seed>_best.pth`. The checkpoint also
 records the seed so repeated runs cannot be confused or silently overwritten.
+Smoke runs add a `_smoke` suffix, preventing a smoke checkpoint from replacing
+a real experiment with the same model, part, and seed.
 
 ### Density-map caching
 
@@ -263,7 +265,8 @@ Loads the checkpoint, runs the test split, and writes
 `reports/<model>_part<part>_seed<seed>_metrics.json` (`mae`, `rmse`, `n_params`,
 `seed`, ...) for the later comparison table. The loader sanity-checks that the
 checkpoint's model name matches the requested model and that seed metadata is
-present.
+present. It also checks the ShanghaiTech part stored in the checkpoint, avoiding
+an accidental Part A checkpoint evaluation labeled as Part B (or vice versa).
 
 ### Experimental protocol
 

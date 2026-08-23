@@ -31,17 +31,20 @@ from src.models import build_model
 from src.train import evaluate, experiment_stem, get_device, set_seed
 
 
-def load_checkpoint(path: str | Path, model_name: str) -> dict:
+def load_checkpoint(path: str | Path, model_name: str, part: str) -> dict:
     """Load a checkpoint dict and sanity-check it matches the requested model.
 
-    Verifies the stored `model` field equals the one requested, so you can't
-    accidentally evaluate an MCNN checkpoint with a CSRNet model (the
-    state_dict would load but with silently-wrong semantics).
+    Verifies the stored model and ShanghaiTech part equal the requested values,
+    so a checkpoint cannot be evaluated under a misleading configuration.
     """
     ckpt = torch.load(path, map_location="cpu", weights_only=False)
     if ckpt.get("model") != model_name:
         raise ValueError(
             f"checkpoint model={ckpt.get('model')!r} != requested {model_name!r}"
+        )
+    if ckpt.get("part") != part:
+        raise ValueError(
+            f"checkpoint part={ckpt.get('part')!r} != requested {part!r}"
         )
     if "seed" not in ckpt:
         raise ValueError("checkpoint is missing required 'seed' metadata")
@@ -121,7 +124,7 @@ def main(argv: list[str] | None = None) -> None:
     else:
         if args.ckpt is None:
             parser.error("--ckpt is required unless --smoke is set")
-        ckpt = load_checkpoint(args.ckpt, args.model)
+        ckpt = load_checkpoint(args.ckpt, args.model, args.part)
         model.load_state_dict(ckpt["state_dict"])
         run_seed = int(ckpt["seed"])
         ckpt_info = {
@@ -142,7 +145,7 @@ def main(argv: list[str] | None = None) -> None:
 
     out_path = Path(args.out) if args.out else (
         REPORTS_DIR
-        / f"{experiment_stem(args.model, args.part, run_seed)}_metrics.json"
+        / f"{experiment_stem(args.model, args.part, run_seed, smoke=args.smoke)}_metrics.json"
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     metrics = {
