@@ -25,7 +25,7 @@ import torch
 from PIL import Image
 from torch.utils.data import DataLoader
 
-from src.config import MODEL_CONFIGS, REPORTS_DIR, SHANGHAITECH_DIR
+from src.config import DENSITY_CACHE_DIR, MODEL_CONFIGS, REPORTS_DIR, SHANGHAITECH_DIR
 from src.datasets.dataset import CrowdCountingDataset
 from src.models import build_model
 from src.train import evaluate, get_device
@@ -46,13 +46,17 @@ def load_checkpoint(path: str | Path, model_name: str) -> dict:
     return ckpt
 
 
-def build_test_loader(model_name: str, part: str, root: str | Path) -> DataLoader:
+def build_test_loader(model_name: str, part: str, root: str | Path,
+                        use_cache: bool = True,
+                        cache_dir: str | Path = DENSITY_CACHE_DIR) -> DataLoader:
     """Build the test-split DataLoader with the model's stride/normalization."""
     cfg = MODEL_CONFIGS[model_name]
     test_ds = CrowdCountingDataset.from_config(
         part=part, split="test", root=root,
         downsample_factor=cfg["downsample_factor"],
         normalize=cfg["normalize"],
+        use_cache=use_cache,
+        cache_dir=cache_dir,
     )
     # batch_size=1: counts are per-image; no padding/drop so every test image counts.
     return DataLoader(test_ds, batch_size=1, shuffle=False, num_workers=0)
@@ -87,6 +91,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--ckpt", default=None,
                         help="path to checkpoint (required unless --smoke)")
     parser.add_argument("--root", default=str(SHANGHAITECH_DIR))
+    parser.add_argument("--no-cache", action="store_true",
+                        help="disable density-map disk caching")
+    parser.add_argument("--cache-dir", default=str(DENSITY_CACHE_DIR),
+                        help="density-map cache root (default data/processed/density_maps)")
     parser.add_argument("--out", default=None,
                         help="json file to write metrics to (default: reports/<model>_part<part>_metrics.json)")
     parser.add_argument("--smoke", action="store_true",
@@ -111,7 +119,9 @@ def main(argv: list[str] | None = None) -> None:
         model.load_state_dict(ckpt["state_dict"])
         ckpt_info = {k: ckpt.get(k) for k in ("epoch", "val_mae", "val_rmse")}
 
-    test_loader = build_test_loader(args.model, args.part, args.root)
+    test_loader = build_test_loader(args.model, args.part, args.root,
+                                    use_cache=not args.no_cache,
+                                    cache_dir=args.cache_dir)
     print(f"[device] {device}")
     print(f"[model] {args.model} params={n_params} "
           f"(ckpt epoch={ckpt_info['epoch']} val_mae={ckpt_info['val_mae']})")

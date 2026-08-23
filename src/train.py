@@ -26,6 +26,7 @@ from src.config import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_NUM_EPOCHS,
     MODEL_CONFIGS,
+    DENSITY_CACHE_DIR,
     REPORTS_DIR,
     SHANGHAITECH_DIR,
     VAL_SPLIT,
@@ -55,12 +56,18 @@ def build_dataloaders(
     root: str | Path,
     batch_size: int,
     num_workers: int,
+    use_cache: bool = True,
+    cache_dir: str | Path = DENSITY_CACHE_DIR,
 ) -> tuple[DataLoader, DataLoader]:
     """Build train + validation DataLoaders for a given model.
 
     The model-specific downsample_factor and normalize flags are pulled from
     MODEL_CONFIGS so the GT density map matches the model's output stride and
     the input scaling matches what the model was designed for.
+
+    use_cache (default True) persists density maps to disk so they are
+    generated once instead of every epoch (see issue #15). cache_dir defaults
+    to config.DENSITY_CACHE_DIR (data/processed/density_maps).
     """
     cfg = MODEL_CONFIGS[model_name]
     # from_config hardcodes target_size=DEFAULT_IMAGE_SIZE and val_split=VAL_SPLIT,
@@ -69,6 +76,8 @@ def build_dataloaders(
         root=root,
         downsample_factor=cfg["downsample_factor"],
         normalize=cfg["normalize"],
+        use_cache=use_cache,
+        cache_dir=cache_dir,
     )
     train_ds = CrowdCountingDataset.from_config(part=part, split="train", **common)
     val_ds = CrowdCountingDataset.from_config(part=part, split="val", **common)
@@ -176,6 +185,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--lr", type=float, default=None,
                         help="override lr from MODEL_CONFIGS")
     parser.add_argument("--num-workers", type=int, default=0)
+    parser.add_argument("--no-cache", action="store_true",
+                        help="disable density-map disk caching (regenerate every epoch)")
+    parser.add_argument("--cache-dir", default=str(DENSITY_CACHE_DIR),
+                        help="density-map cache root (default data/processed/density_maps)")
     parser.add_argument("--root", default=str(SHANGHAITECH_DIR))
     parser.add_argument("--out-dir", default=str(REPORTS_DIR / "checkpoints"))
     parser.add_argument("--smoke", action="store_true",
@@ -192,11 +205,14 @@ def main(argv: list[str] | None = None) -> None:
           f"lr={lr} momentum={cfg['momentum']}")
 
     # --- smoke mode: build a throwaway fake dataset so we can run without the
-    # real download. Exercises the entire loop end-to-end.
+    # real download. Exercises the entire loop end-to-end. Cache is forced off
+    # so fake 'IMG_*' stems never pollute the real on-disk cache.
+    use_cache = not args.no_cache
     if args.smoke:
         root = _make_fake_dataset(tempfile.mkdtemp(), part=args.part, n=8)
         args.root = root
         args.epochs = 1
+        use_cache = False
 
     model = build_model(args.model).to(device)
     n_params = sum(p.numel() for p in model.parameters())
@@ -205,6 +221,7 @@ def main(argv: list[str] | None = None) -> None:
     train_loader, val_loader = build_dataloaders(
         args.model, args.part, args.root,
         batch_size=args.batch_size, num_workers=args.num_workers,
+        use_cache=use_cache, cache_dir=args.cache_dir,
     )
     print(f"[data] train={len(train_loader.dataset)} val={len(val_loader.dataset)}")
 

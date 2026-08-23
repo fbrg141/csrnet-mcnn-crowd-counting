@@ -230,6 +230,27 @@ optimizer is SGD with momentum 0.95. Per epoch it logs train loss/MAE/RMSE
 and validation MAE/RMSE, and checkpoints the best-validation-MAE `state_dict` to
 `reports/checkpoints/<model>_part<part>_best.pth`.
 
+### Density-map caching
+
+Adaptive density maps take ~500 ms per image to generate. To avoid
+regenerating identical targets every epoch (issue #15), density maps are cached
+to disk under `data/processed/density_maps/` (git-ignored) and loaded on later
+accesses. Caching is on by default for training and evaluation.
+
+Precompute the whole cache once before a long run so every epoch is fast:
+
+```bash
+uv run --locked python scripts/precompute_density_maps.py            # all parts/splits/models
+uv run --locked python scripts/precompute_density_maps.py --parts A --models mcnn
+uv run --locked python scripts/precompute_density_maps.py --force       # rebuild from scratch
+```
+
+The cache key encodes every parameter that affects the density output (mode,
+sigma/k+beta, target size, output stride, `CACHE_VERSION` in `src/config.py`),
+so a stale or mismatched cache is never loaded. Bump `CACHE_VERSION` after any
+change to the density-map generation logic. Flags: `--no-cache` regenerates every
+epoch; `--cache-dir <path>` overrides the cache root.
+
 ### Evaluate a checkpoint
 
 ```bash
@@ -261,7 +282,7 @@ per-image counts.
 - [ ] CSRNet implementation (currently a placeholder in `src/models/csrnet.py`)
 - [x] training loop (`src/train.py`) — MSE loss, SGD, per-model config (stride/normalize/lr)
 - [x] evaluation entrypoint (`src/evaluate.py`) — checkpoint load + MAE/RMSE
-- [ ] density-map caching (issue #15) — adaptive maps regenerated every epoch
+- [x] density-map caching (issue #15) — `src/datasets/dataset.py` + `scripts/precompute_density_maps.py`, cache under `data/processed/density_maps/`
 - [ ] data augmentation (issue #14)
 - [ ] real training run + results (needs dataset download)
 - [ ] final report
