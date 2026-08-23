@@ -7,6 +7,13 @@ DATA_DIR = PROJECT_ROOT / "data"
 RAW_DATA_DIR = DATA_DIR / "raw"
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
 REPORTS_DIR = PROJECT_ROOT / "reports"
+DENSITY_CACHE_DIR = PROCESSED_DATA_DIR / "density_maps"
+
+# Bump this when the density-map *generation logic* changes (e.g. editing
+# fixed_sigma_density_map / adaptive_density_map), so on-disk caches built
+# with the old logic are no longer loaded. It is embedded in every cache
+# path, so a bump silently invalidates the whole cache.
+CACHE_VERSION = 1
 
 # Dataset
 SHANGHAITECH_DIR = RAW_DATA_DIR / "ShanghaiTech"
