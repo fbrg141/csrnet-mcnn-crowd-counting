@@ -203,6 +203,52 @@ PyTorch wheel without NVIDIA packages. The Mac can be used for development,
 tests, notebooks, and small MPS/CPU smoke runs; final training is performed on
 the Linux GPU. Intel Macs are not supported by the pinned PyTorch version.
 
+## Training and Evaluation
+
+Training and evaluation are model-agnostic entrypoints driven by a per-model
+config (`src/config.py` → `MODEL_CONFIGS`) that sets the output stride, input
+normalization, and learning rate. This keeps MCNN and CSRNet trained under
+comparable, paper-faithful conditions:
+
+| Model | Output stride | Input norm | Learning rate |
+|-------|--------------|------------|---------------|
+| MCNN  | 4 (two 2×2 pools) | raw [0,1] (from scratch) | 1e-6 |
+| CSRNet | 8 (VGG + dilated) | ImageNet (pretrained VGG frontend) | 1e-5 |
+
+### Train a model
+
+```bash
+# MCNN on ShanghaiTech Part A (defaults: 50 epochs, batch 4, lr from MODEL_CONFIGS)
+uv run --locked python -m src.train --model mcnn --part A
+
+# Smoke test: 1 epoch on a tiny fake dataset (no download needed)
+uv run --locked python -m src.train --model mcnn --part A --smoke
+```
+
+Loss is pixel-wise MSE on the density map (the paper's Euclidean loss);
+optimizer is SGD with momentum 0.95. Per epoch it logs train loss/MAE/RMSE
+and validation MAE/RMSE, and checkpoints the best-validation-MAE `state_dict` to
+`reports/checkpoints/<model>_part<part>_best.pth`.
+
+### Evaluate a checkpoint
+
+```bash
+uv run --locked python -m src.evaluate --model mcnn --part A \
+    --ckpt reports/checkpoints/mcnn_partA_best.pth
+```
+
+Loads the checkpoint, runs the test split, and writes
+`reports/<model>_part<part>_metrics.json` (`mae`, `rmse`, `n_params`, ...) for
+the later comparison table. The loader sanity-checks that the checkpoint's
+model name matches the requested model.
+
+### Counting convention
+
+Both training and evaluation recover the head count as the integral of the
+density map (`density.sum()`), for predictions and ground truth alike, so train
+and eval measure the same quantity. MAE and RMSE are computed on these
+per-image counts.
+
 ## Current Status
 - [x] topic defined
 - [x] dataset selected (ShanghaiTech)
@@ -210,9 +256,14 @@ the Linux GPU. Intel Macs are not supported by the pinned PyTorch version.
 - [x] annotation analysis and density-map generation (`src/datasets/density_map.py`, `src/datasets/dataset.py`)
 - [x] exploratory notebooks (`notebooks/01_dataset_inspection.ipynb`, `notebooks/02_density_maps.ipynb`)
 - [x] dataset loader + normalization/downsample tests
-- [ ] MCNN implementation (currently a placeholder in `src/models/mcnn.py`)
+- [x] adaptive density-map single-head edge case (`src/datasets/density_map.py`, `tests/test_density_map.py`)
+- [x] MCNN implementation (`src/models/mcnn.py`, `tests/test_mcnn.py`) — verified against Zhang et al. CVPR 2016
 - [ ] CSRNet implementation (currently a placeholder in `src/models/csrnet.py`)
-- [ ] training and evaluation (`src/train.py`, `src/evaluate.py` are placeholders)
+- [x] training loop (`src/train.py`) — MSE loss, SGD, per-model config (stride/normalize/lr)
+- [x] evaluation entrypoint (`src/evaluate.py`) — checkpoint load + MAE/RMSE
+- [ ] density-map caching (issue #15) — adaptive maps regenerated every epoch
+- [ ] data augmentation (issue #14)
+- [ ] real training run + results (needs dataset download)
 - [ ] final report
 
 ## Expected Outcome

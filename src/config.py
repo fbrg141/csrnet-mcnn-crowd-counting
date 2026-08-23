@@ -24,3 +24,30 @@ VAL_SPLIT = 0.1  # fraction of training set for validation
 DEFAULT_BATCH_SIZE = 4
 DEFAULT_NUM_EPOCHS = 50
 DEFAULT_LEARNING_RATE = 1e-4
+
+# Per-model settings. These are the values the paper / standard references use.
+# They must NOT be collapsed into a single global default, because the two
+# models differ in crucial ways:
+#   - downsample_factor: matches each model's output stride (MCNN=4, CSRNet=8)
+#     so the GT density map aligns with the prediction.
+#   - normalize: CSRNet uses a pretrained VGG16 frontend (needs ImageNet norm);
+#     MCNN is trained from scratch (raw [0,1] inputs).
+#   - lr: MCNN is from-scratch and fragile (paper: 1e-6); CSRNet fine-tunes a
+#     pretrained backbone and tolerates a larger lr (1e-5).
+MODEL_CONFIGS = {
+    "mcnn": {
+        "downsample_factor": 4,
+        "normalize": False,
+        "lr": 1e-6,
+        "momentum": 0.95,
+    },
+    "csrnet": {
+        "downsample_factor": 8,
+        "normalize": True,
+        "lr": 1e-5,
+        "momentum": 0.95,
+    },
+}
+
+# SGD momentum used for all models (kept here for clarity; also in MODEL_CONFIGS).
+DEFAULT_MOMENTUM = 0.95
