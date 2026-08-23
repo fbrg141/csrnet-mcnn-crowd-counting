@@ -52,10 +52,12 @@ Input (H×W×3)
 │   ├── Conv(512→512, 3×3, dilation=2, padding=2) + ReLU
 │   ├── Conv(512→512, 3×3, dilation=2, padding=2) + ReLU
 │   ├── Conv(512→512, 3×3, dilation=2, padding=2) + ReLU
-│   └── Conv(512→256, 3×3, dilation=2, padding=2) + ReLU
+│   ├── Conv(512→256, 3×3, dilation=2, padding=2) + ReLU
+│   ├── Conv(256→128, 3×3, dilation=2, padding=2) + ReLU
+│   └── Conv(128→64, 3×3, dilation=2, padding=2) + ReLU
 │
 └── Output
-    └── Conv(256→1, 1×1) → Density map (H/8 × W/8 × 1)
+    └── Conv(64→1, 1×1) → Density map (H/8 × W/8 × 1)
 ```
 
 ### Why stop at conv4 and remove pooling?
@@ -128,14 +130,18 @@ class CSRNet(nn.Module):
             nn.ReLU(),
             nn.Conv2d(512, 256, kernel_size=3, dilation=2, padding=2),
             nn.ReLU(),
+            nn.Conv2d(256, 128, kernel_size=3, dilation=2, padding=2),
+            nn.ReLU(),
+            nn.Conv2d(128, 64, kernel_size=3, dilation=2, padding=2),
+            nn.ReLU(),
         )
 
         # Output layer
-        self.output = nn.Conv2d(256, 1, kernel_size=1)
+        self.output = nn.Conv2d(64, 1, kernel_size=1)
 
     def forward(self, x):
         x = self.frontend(x)   # (B, 512, H/8, W/8)
-        x = self.backend(x)    # (B, 256, H/8, W/8)
+        x = self.backend(x)    # (B, 64, H/8, W/8)
         x = self.output(x)     # (B, 1, H/8, W/8)
         return x
 ```
@@ -144,7 +150,10 @@ class CSRNet(nn.Module):
 
 ---
 
-## 4.6 Training Details
+## 4.6 Reference Training Details
+
+The following table records the paper-aligned target configuration, not the
+complete behavior of the repository's current generic training entrypoint.
 
 | Hyperparameter | Value |
 |---|---|
@@ -156,9 +165,14 @@ class CSRNet(nn.Module):
 | Data aug | Random crops, horizontal flips, color jitter |
 | Ground truth | Fixed Gaussian kernel (sigma=4 for ShanghaiTech Part A, sigma=15 for Part B) |
 
-**Two-stage training:**
-1. Train the backend only (freeze frontend) for a few epochs
-2. Fine-tune the whole network together
+**End-to-end fine-tuning:** VGG16 frontend starts from ImageNet weights, while
+the dilated backend and output layer start from newly initialized weights. All
+layers remain trainable.
+
+The current `src/train.py` uses one SGD parameter group and the single CSRNet
+learning rate from `MODEL_CONFIGS`; it does not yet apply separate frontend and
+backend learning rates or weight decay. Those paper-aligned optimizer details
+are intentionally deferred to the CSRNet training-integration task.
 
 ---
 

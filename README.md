@@ -279,7 +279,7 @@ per-image counts.
 - [x] dataset loader + normalization/downsample tests
 - [x] adaptive density-map single-head edge case (`src/datasets/density_map.py`, `tests/test_density_map.py`)
 - [x] MCNN implementation (`src/models/mcnn.py`, `tests/test_mcnn.py`) — verified against Zhang et al. CVPR 2016
-- [ ] CSRNet implementation (currently a placeholder in `src/models/csrnet.py`)
+- [x] CSRNet-B implementation (`src/models/csrnet.py`, `tests/test_csrnet.py`) — pretrained VGG16 frontend + full dilated backend
 - [x] training loop (`src/train.py`) — MSE loss, SGD, per-model config (stride/normalize/lr)
 - [x] evaluation entrypoint (`src/evaluate.py`) — checkpoint load + MAE/RMSE
 - [x] density-map caching (issue #15) — `src/datasets/dataset.py` + `scripts/precompute_density_maps.py`, cache under `data/processed/density_maps/`
