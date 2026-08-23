@@ -69,35 +69,139 @@ Additionally, the following may be considered:
 
 ## Project Structure
 ```text
-data/       - dataset and data preparation
-notebooks/  - exploratory analysis and visualizations
-src/        - main project source code
-reports/    - notes, images, results, and report drafts
+data/             - dataset and data preparation
+notebooks/        - exploratory analysis and visualizations
+src/              - main project source code
+reports/          - notes, images, results, and report drafts
+pyproject.toml    - project metadata and direct dependencies
+uv.lock           - exact, reproducible dependency versions
+.python-version   - Python version used by uv
 ```
 
 ## Running the Project
+This project uses [uv](https://docs.astral.sh/uv/) to manage Python, the
+virtual environment, and locked dependencies. The supported platforms are
+Linux x86_64 and Apple Silicon macOS, using Python 3.11.
+
 ### 1. Clone the repository
 ```bash
-git clone <REPO_LINK>
-cd crowd-counting-csrnet-mcnn
+git clone https://github.com/fbrg141/csrnet-mcnn-crowd-counting.git
+cd csrnet-mcnn-crowd-counting
 ```
 
-### 2. Create a virtual environment
+### 2. Install uv
+
+If `uv` is not already installed, follow the
+[official installation guide](https://docs.astral.sh/uv/getting-started/installation/).
+For Linux and macOS, the installer can be run with:
+
 ```bash
-python3 -m venv .venv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Verify the installation:
+
+```bash
+uv --version
+```
+
+### 3. Set up the project
+
+Create `.venv`, install Python 3.11 if necessary, and install the exact
+versions recorded in `uv.lock`:
+
+```bash
+uv sync --locked
+```
+
+The default sync includes the runtime dependencies and the `dev`, `notebooks`,
+and `dataset` dependency groups. The environment does not need to be activated
+when commands are run with `uv run`.
+
+If activation is preferred, use:
+
+```bash
 source .venv/bin/activate
 ```
 
-### 3. Install dependencies
-```bash
-pip install -r requirements.txt
-```
+After activation, `python` points to `.venv/bin/python`. To leave the
+environment, run `deactivate`.
 
 ### 4. Download the dataset
+
+The `dataset` dependency group provides `kagglehub`, which is used by the
+download script:
+
 ```bash
-pip install kagglehub
-python scripts/download_data.py
+uv run --locked python scripts/download_data.py
 ```
+
+The dataset is copied to `data/raw/ShanghaiTech/`. See `data/README.md` for
+the expected directory structure.
+
+### 5. Run project commands
+
+Use `uv run --locked` to run commands in the project environment without
+allowing an implicit lockfile update:
+
+```bash
+# Run the test suite
+uv run --locked python -m pytest tests/
+
+# Start Jupyter Notebook
+uv run --locked jupyter notebook
+
+# Run a Python script
+uv run --locked python path/to/script.py
+```
+
+Alternatively, activate `.venv` and run the same commands directly with
+`python`, `pytest`, or `jupyter`.
+
+### Updating dependencies
+
+Use `uv add` and `uv remove` instead of editing `uv.lock` manually:
+
+```bash
+# Runtime dependency
+uv add <package>
+
+# Test and development dependency
+uv add --dev <package>
+
+# Notebook or dataset tooling
+uv add --group notebooks <package>
+uv add --group dataset <package>
+
+# Remove a dependency from a group
+uv remove --group notebooks <package>
+```
+
+These commands update both `pyproject.toml` and `uv.lock`. Commit both files
+together. After pulling dependency changes, run `uv sync --locked` again.
+
+To install only the runtime dependencies, without the default tool groups:
+
+```bash
+uv sync --locked --no-default-groups
+```
+
+The `.venv` directory is local and ignored by Git.
+
+### Compute device support
+
+Final training targets Linux x86_64 with an NVIDIA RTX 4070. The lockfile pins
+PyTorch 2.13.0 and torchvision 0.28.0; their CUDA 13 dependencies are installed
+only on Linux. Verify the Linux training environment with:
+
+```bash
+uv run --locked python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('CUDA version:', torch.version.cuda); print('GPU:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'none')"
+```
+
+On Apple Silicon with macOS 14 or newer, the same lockfile installs the macOS
+PyTorch wheel without NVIDIA packages. The Mac can be used for development,
+tests, notebooks, and small MPS/CPU smoke runs; final training is performed on
+the Linux GPU. Intel Macs are not supported by the pinned PyTorch version.
 
 ## Current Status
 - [x] topic defined

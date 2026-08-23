@@ -14,9 +14,8 @@ Link: https://www.kaggle.com/datasets/tthien/shanghaitech
 ## Preuzimanje
 
 ```bash
-# One-liner:
-pip install kagglehub
-python scripts/download_data.py
+# Pokrenuti iz korena repozitorijuma nakon `uv sync --locked`:
+uv run --locked python scripts/download_data.py
 ```
 
 ## Sadržaj dataseta
@@ -48,10 +47,10 @@ data/raw/
         ground-truth/
 ```
 
-## Preuzimanje
-
 ## Napomena
-Dataset ne ide u git (ignorisan u `.gitignore`). Samo ovaj README fajl se čuva u repozitorijumu.
+Dataset ne ide u git (ignorisan u `.gitignore`). U repozitorijumu se čuvaju
+ovaj README i `.gitkeep` fajlovi koji zadržavaju prazne `raw/` i `processed/`
+direktorijume.
 
 ## Sledeći koraci
 - [ ] preuzeti ShanghaiTech dataset

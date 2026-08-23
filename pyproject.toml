@@ -1,0 +1,41 @@
+[project]
+name = "csrnet-mcnn-crowd-counting"
+version = "0.1.0"
+description = "Comparative analysis of CSRNet and MCNN models for crowd counting"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "h5py",
+    "numpy",
+    "opencv-python",
+    "pandas",
+    "pillow",
+    "scikit-image",
+    "scikit-learn",
+    "scipy",
+    "torch==2.13.0",
+    "torchvision==0.28.0",
+    "tqdm",
+]
+
+[dependency-groups]
+dataset = [
+    "kagglehub",
+]
+dev = [
+    "pytest",
+]
+notebooks = [
+    "jupyter",
+    "matplotlib",
+    "notebook",
+    "seaborn",
+]
+
+[tool.uv]
+package = false
+default-groups = ["dataset", "dev", "notebooks"]
+environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
