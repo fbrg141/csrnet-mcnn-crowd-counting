@@ -218,8 +218,8 @@ comparable, paper-faithful conditions:
 ### Train a model
 
 ```bash
-# MCNN on ShanghaiTech Part A (defaults: 50 epochs, batch 4, lr from MODEL_CONFIGS)
-uv run --locked python -m src.train --model mcnn --part A
+# MCNN on ShanghaiTech Part A (defaults: 50 epochs, batch 4, seed 42)
+uv run --locked python -m src.train --model mcnn --part A --seed 42
 
 # Smoke test: 1 epoch on a tiny fake dataset (no download needed)
 uv run --locked python -m src.train --model mcnn --part A --smoke
@@ -228,7 +228,8 @@ uv run --locked python -m src.train --model mcnn --part A --smoke
 Loss is pixel-wise MSE on the density map (the paper's Euclidean loss);
 optimizer is SGD with momentum 0.95. Per epoch it logs train loss/MAE/RMSE
 and validation MAE/RMSE, and checkpoints the best-validation-MAE `state_dict` to
-`reports/checkpoints/<model>_part<part>_best.pth`.
+`reports/checkpoints/<model>_part<part>_seed<seed>_best.pth`. The checkpoint also
+records the seed so repeated runs cannot be confused or silently overwritten.
 
 ### Density-map caching
 
@@ -255,13 +256,60 @@ epoch; `--cache-dir <path>` overrides the cache root.
 
 ```bash
 uv run --locked python -m src.evaluate --model mcnn --part A \
-    --ckpt reports/checkpoints/mcnn_partA_best.pth
+    --ckpt reports/checkpoints/mcnn_partA_seed42_best.pth
 ```
 
 Loads the checkpoint, runs the test split, and writes
-`reports/<model>_part<part>_metrics.json` (`mae`, `rmse`, `n_params`, ...) for
-the later comparison table. The loader sanity-checks that the checkpoint's
-model name matches the requested model.
+`reports/<model>_part<part>_seed<seed>_metrics.json` (`mae`, `rmse`, `n_params`,
+`seed`, ...) for the later comparison table. The loader sanity-checks that the
+checkpoint's model name matches the requested model and that seed metadata is
+present.
+
+### Experimental protocol
+
+The baseline comparison deliberately uses the smallest protocol that answers
+the project question:
+
+- four configurations: MCNN and CSRNet on ShanghaiTech Part A and Part B;
+- three training seeds per configuration: `42`, `123`, and `2026`;
+- 50 epochs, with the best checkpoint selected by validation MAE;
+- no data augmentation, early stopping, learning-rate scheduler, or
+  hyperparameter search;
+- the existing deterministic validation split: the final 10% of the
+  lexicographically sorted official training files;
+- final MAE/RMSE reported per run and as mean ± standard deviation over seeds.
+
+The validation split is a known limitation: because it is not randomly sampled,
+it may not represent the full training distribution and may select a suboptimal
+checkpoint. It is nevertheless fixed across all models and seeds, so the
+controlled comparison remains consistent. Final metrics are computed on the
+untouched official test split.
+
+### Google Colab pilot
+
+The first full run is MCNN on Part A with seed 42. Dataset files and density-map
+cache can remain in Colab's temporary `/content` storage; persist only the
+checkpoint, metrics, and training log in Google Drive:
+
+```python
+from google.colab import drive
+drive.mount("/content/drive")
+
+OUTPUT_ROOT = "/content/drive/MyDrive/csrnet-mcnn-results"
+```
+
+```python
+!git pull --ff-only
+!mkdir -p "{OUTPUT_ROOT}/checkpoints" "{OUTPUT_ROOT}/metrics" "{OUTPUT_ROOT}/logs"
+
+!uv run --locked python -c "import torch; print('CUDA:', torch.cuda.is_available()); print('GPU:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'none')"
+
+!uv run --locked python scripts/precompute_density_maps.py
+
+!uv run --locked python -m src.train --model mcnn --part A --epochs 50 --seed 42 --out-dir "{OUTPUT_ROOT}/checkpoints" 2>&1 | tee "{OUTPUT_ROOT}/logs/mcnn_partA_seed42.log"
+
+!uv run --locked python -m src.evaluate --model mcnn --part A --ckpt "{OUTPUT_ROOT}/checkpoints/mcnn_partA_seed42_best.pth" --out "{OUTPUT_ROOT}/metrics/mcnn_partA_seed42_metrics.json"
+```
 
 ### Counting convention
 
