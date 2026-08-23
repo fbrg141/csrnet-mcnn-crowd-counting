@@ -220,6 +220,10 @@ MAE (328.22) at **epoch 34**, then **overfits**: train MAE keeps dropping
 (292 → 278) while val MAE rises (328 → 345). The `best.pth` checkpoint correctly
 froze at epoch 34.
 
+![Training curves](figures/training_curves.png)
+
+*Figure 1: Left — validation MAE vs epoch (log y). MCNN descends steadily to a plateau; CSRNet reaches its best at epoch 34 then rises. Right — CSRNet train vs validation, showing the overfitting divergence after epoch 34 (train keeps dropping, val rises).*
+
 ```
         MCNN                 CSRNet
         train   val          train    val
@@ -315,6 +319,8 @@ uv run --locked python -m src.evaluate --model csrnet --part A \
   `reports/csrnet_partA_seed42_metrics.json`.
 - **Training logs & lr analysis:** `notes/19-mcnn-learning-rate-tuning.md`,
   `notes/20-results-mcnn-vs-csrnet.md`.
+- **Figure:** `reports/figures/training_curves.png` (regenerate with
+  `scripts/plot_training_curves.py`).
 
 ---
 
