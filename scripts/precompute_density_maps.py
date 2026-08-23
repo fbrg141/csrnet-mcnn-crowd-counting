@@ -20,8 +20,16 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import sys
 import time
 from pathlib import Path
+
+# Ensure the project root is importable whether this file is run as a direct
+# path (``python scripts/precompute_density_maps.py``, which puts ``scripts/``
+# on sys.path[0]) or as a module (``python -m scripts.precompute_density_maps``).
+# The project is not an installed package (pyproject ``package = false``), so
+# ``src`` is only reachable when the project root is on sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.config import MODEL_CONFIGS, SHANGHAITECH_DIR, DENSITY_CACHE_DIR
 from src.datasets.dataset import CrowdCountingDataset
