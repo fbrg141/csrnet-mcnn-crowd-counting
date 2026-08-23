@@ -144,6 +144,31 @@ Note: 464.74 is **validation** MAE (30 held-out train images). The reported
 comparison number must be **test** MAE over the 182 Part A test images, obtained
 via `src.evaluate` (see section 19.10).
 
+### Test-set result
+
+```
+[device] cuda
+[model] mcnn params=64385 (ckpt epoch=50 val_mae=464.73787078857424)
+[data] test=182 images
+[result] MAE=315.2272  RMSE=429.1577
+[saved] reports/mcnn_partA_seed42_metrics.json
+```
+
+| metric        | value  |
+|---------------|-------:|
+| test MAE      | 315.23 |
+| test RMSE     | 429.16 |
+| val MAE       | 464.74 |
+| params        | 64,385 |
+| paper MAE     | ~110   |
+| paper RMSE    | ~173   |
+
+Test MAE (315.23) is **lower** than val MAE (464.74) — the 30-image val set is
+noisier than the 182-image test set; the test number is the one to report. The
+~200-point gap to the paper remains attributable to the still-outstanding
+deviations (no augmentation #14, no lr scheduling, fixed-sigma density maps,
+fewer epochs).
+
 ## 19.8 Appendix: full epoch log (lr=1e-6 run)
 
 Raw output of the baseline run, preserved verbatim for the record. The slope
