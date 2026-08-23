@@ -72,9 +72,14 @@ def adaptive_density_map(
 
     for x, y in points:
         distances, _ = tree.query((x, y), k=n_neighbours)
+        distances = np.atleast_1d(distances)
         # distances[0] is distance to self (≈ 0)
-        avg_dist = np.mean(distances[1:])
-        sigma = beta * avg_dist
+        neighbour_distances = distances[1:]
+        sigma = (
+            beta * np.mean(neighbour_distances)
+            if neighbour_distances.size > 0
+            else fallback_sigma
+        )
 
         if sigma < 1e-5:
             sigma = fallback_sigma
