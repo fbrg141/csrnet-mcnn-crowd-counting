@@ -7,7 +7,7 @@ same thing.
 
 Run:
     python -m src.evaluate --model mcnn --part A \\
-        --ckpt reports/checkpoints/mcnn_partA_best.pth
+        --ckpt reports/checkpoints/mcnn_partA_seed42_best.pth
     python -m src.evaluate --model mcnn --part A --smoke   # no checkpoint needed
 """
 
@@ -28,21 +28,26 @@ from torch.utils.data import DataLoader
 from src.config import DENSITY_CACHE_DIR, MODEL_CONFIGS, REPORTS_DIR, SHANGHAITECH_DIR
 from src.datasets.dataset import CrowdCountingDataset
 from src.models import build_model
-from src.train import evaluate, get_device
+from src.train import evaluate, experiment_stem, get_device, set_seed
 
 
-def load_checkpoint(path: str | Path, model_name: str) -> dict:
+def load_checkpoint(path: str | Path, model_name: str, part: str) -> dict:
     """Load a checkpoint dict and sanity-check it matches the requested model.
 
-    Verifies the stored `model` field equals the one requested, so you can't
-    accidentally evaluate an MCNN checkpoint with a CSRNet model (the
-    state_dict would load but with silently-wrong semantics).
+    Verifies the stored model and ShanghaiTech part equal the requested values,
+    so a checkpoint cannot be evaluated under a misleading configuration.
     """
     ckpt = torch.load(path, map_location="cpu", weights_only=False)
     if ckpt.get("model") != model_name:
         raise ValueError(
             f"checkpoint model={ckpt.get('model')!r} != requested {model_name!r}"
         )
+    if ckpt.get("part") != part:
+        raise ValueError(
+            f"checkpoint part={ckpt.get('part')!r} != requested {part!r}"
+        )
+    if "seed" not in ckpt:
+        raise ValueError("checkpoint is missing required 'seed' metadata")
     return ckpt
 
 
@@ -90,17 +95,20 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--part", default="A", choices=["A", "B"])
     parser.add_argument("--ckpt", default=None,
                         help="path to checkpoint (required unless --smoke)")
+    parser.add_argument("--seed", type=int, default=42,
+                        help="random seed used by --smoke (real evaluation reads it from checkpoint)")
     parser.add_argument("--root", default=str(SHANGHAITECH_DIR))
     parser.add_argument("--no-cache", action="store_true",
                         help="disable density-map disk caching")
     parser.add_argument("--cache-dir", default=str(DENSITY_CACHE_DIR),
                         help="density-map cache root (default data/processed/density_maps)")
     parser.add_argument("--out", default=None,
-                        help="json file to write metrics to (default: reports/<model>_part<part>_metrics.json)")
+                        help="json output (default: reports/<model>_part<part>_seed<seed>_metrics.json)")
     parser.add_argument("--smoke", action="store_true",
                         help="evaluate a random-init model on a tiny fake test set")
     args = parser.parse_args(argv)
 
+    set_seed(args.seed)
     device = get_device()
 
     model = build_model(args.model).to(device)
@@ -111,13 +119,18 @@ def main(argv: list[str] | None = None) -> None:
         # just to exercise the full load/eval/report path. Numbers are meaningless.
         root = _make_fake_dataset(tempfile.mkdtemp(), part=args.part, n=6)
         args.root = root
-        ckpt_info = {"epoch": 0, "val_mae": None, "val_rmse": None}
+        run_seed = args.seed
+        ckpt_info = {"epoch": 0, "seed": run_seed, "val_mae": None, "val_rmse": None}
     else:
         if args.ckpt is None:
             parser.error("--ckpt is required unless --smoke is set")
-        ckpt = load_checkpoint(args.ckpt, args.model)
+        ckpt = load_checkpoint(args.ckpt, args.model, args.part)
         model.load_state_dict(ckpt["state_dict"])
-        ckpt_info = {k: ckpt.get(k) for k in ("epoch", "val_mae", "val_rmse")}
+        run_seed = int(ckpt["seed"])
+        ckpt_info = {
+            "epoch": ckpt.get("epoch"), "seed": run_seed,
+            "val_mae": ckpt.get("val_mae"), "val_rmse": ckpt.get("val_rmse"),
+        }
 
     test_loader = build_test_loader(args.model, args.part, args.root,
                                     use_cache=not args.no_cache,
@@ -131,12 +144,14 @@ def main(argv: list[str] | None = None) -> None:
     print(f"[result] MAE={mae:.4f}  RMSE={rmse:.4f}")
 
     out_path = Path(args.out) if args.out else (
-        REPORTS_DIR / f"{args.model}_part{args.part}_metrics.json"
+        REPORTS_DIR
+        / f"{experiment_stem(args.model, args.part, run_seed, smoke=args.smoke)}_metrics.json"
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     metrics = {
         "model": args.model,
         "part": args.part,
+        "seed": run_seed,
         "n_test": len(test_loader.dataset),
         "n_params": n_params,
         "mae": mae,

@@ -1,7 +1,7 @@
 """Training entrypoint for crowd counting models.
 
 Run:
-    python -m src.train --model mcnn --part A --epochs 50
+    python -m src.train --model mcnn --part A --epochs 50 --seed 42
     python -m src.train --model mcnn --part A --smoke   # 1 epoch, tiny fake set
 
 The loop is intentionally model-agnostic: the per-model knobs (output stride,
@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import random
 import tempfile
 from pathlib import Path
 
@@ -33,6 +34,24 @@ from src.config import (
 )
 from src.datasets.dataset import CrowdCountingDataset
 from src.models import build_model
+
+
+# --------------------------------------------------------------------------------------
+# Experiment identity and reproducibility
+# --------------------------------------------------------------------------------------
+def set_seed(seed: int) -> None:
+    """Seed the random generators used by the training pipeline."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def experiment_stem(model_name: str, part: str, seed: int, smoke: bool = False) -> str:
+    """Return the shared filename stem for one experimental run."""
+    stem = f"{model_name}_part{part}_seed{seed}"
+    return f"{stem}_smoke" if smoke else stem
 
 
 # --------------------------------------------------------------------------------------
@@ -184,6 +203,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument("--lr", type=float, default=None,
                         help="override lr from MODEL_CONFIGS")
+    parser.add_argument("--seed", type=int, default=42,
+                        help="random seed (default: 42)")
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--no-cache", action="store_true",
                         help="disable density-map disk caching (regenerate every epoch)")
@@ -195,6 +216,7 @@ def main(argv: list[str] | None = None) -> None:
                         help="1-epoch smoke test on a tiny fake dataset")
     args = parser.parse_args(argv)
 
+    set_seed(args.seed)
     device = get_device()
     print(f"[device] {device}")
 
@@ -202,7 +224,7 @@ def main(argv: list[str] | None = None) -> None:
     lr = args.lr if args.lr is not None else cfg["lr"]
     print(f"[config] model={args.model} part={args.part} "
           f"downsample={cfg['downsample_factor']} normalize={cfg['normalize']} "
-          f"lr={lr} momentum={cfg['momentum']}")
+          f"lr={lr} momentum={cfg['momentum']} seed={args.seed}")
 
     # --- smoke mode: build a throwaway fake dataset so we can run without the
     # real download. Exercises the entire loop end-to-end. Cache is forced off
@@ -232,7 +254,9 @@ def main(argv: list[str] | None = None) -> None:
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    ckpt_path = out_dir / f"{args.model}_part{args.part}_best.pth"
+    ckpt_path = out_dir / (
+        f"{experiment_stem(args.model, args.part, args.seed, smoke=args.smoke)}_best.pth"
+    )
 
     best_val_mae = math.inf
     for epoch in range(1, args.epochs + 1):
@@ -249,8 +273,9 @@ def main(argv: list[str] | None = None) -> None:
         if val_mae < best_val_mae:
             best_val_mae = val_mae
             torch.save(
-                {"epoch": epoch, "model": args.model, "state_dict": model.state_dict(),
-                 "val_mae": val_mae, "val_rmse": val_rmse},
+                {"epoch": epoch, "model": args.model, "part": args.part,
+                 "state_dict": model.state_dict(),
+                 "seed": args.seed, "val_mae": val_mae, "val_rmse": val_rmse},
                 ckpt_path,
             )
             print(f"  -> saved {ckpt_path.name} (val_mae={val_mae:.2f})")
