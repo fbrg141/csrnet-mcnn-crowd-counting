@@ -1,0 +1,212 @@
+\documentclass[aspectratio=169]{beamer}
+
+% Serbian Latin characters support
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+
+% Graphics and tables
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+
+% Theme - clean and professional
+\usetheme{Madrid}
+\usecolortheme{default}
+
+% Serbian language settings
+\renewcommand{\figurename}{Slika}
+\renewcommand{\tablename}{Tabela}
+
+% Custom footline with slide numbers
+\setbeamertemplate{footline}[frame number]
+\setbeamertemplate{navigation symbols}{}
+
+\title[Poređenje MCNN i CSRNet modela]{Poređenje MCNN i CSRNet modela\\za brojanje ljudi u gomili}
+\author[Dimitrijević, Kutlešić]{Uroš Dimitrijević \and Miloš Kutlešić}
+\institute[FTN]{Projektni rad iz predmeta Mašinsko učenje}
+\date{}
+
+\begin{document}
+
+% Slide 1: Title
+\begin{frame}
+    \titlepage
+\end{frame}
+
+% Slide 2: Introduction
+\begin{frame}{Uvod i motivacija}
+    \begin{itemize}
+        \item \textbf{Problem}: Automatsko brojanje ljudi na slikama gustih gužvi
+        \item \textbf{Zašto ne detekcija objekata?}
+        \begin{itemize}
+            \item Jaka okluzija (prekrivanje) u gustim scenama
+            \item Mali objekti, teško razlikovanje pojedinaca
+            \item Previše instanci za bounding box pristup (npr. YOLO)
+        \end{itemize}
+        \item \textbf{Rešenje}: Regresija mape gustine (density map)
+        \begin{itemize}
+            \item Model uči "koliko je gusta svaka oblast", ne "gde je svaka osoba"
+            \item Ukupan broj = integral (suma) mape gustine
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+% Slide 3: Theory - Density Maps
+\begin{frame}{Teorijska osnova: Mape gustine}
+    \begin{columns}[T]
+        \column{0.55\textwidth}
+        \begin{itemize}
+            \item Svaka anotacija (glava) se modeluje Gausovim kernelom:
+            \[
+                F(x) = \sum_{i=1}^{N} \delta(x-x_i) * G_{\sigma_i}(x)
+            \]
+            \item \textbf{Broj osoba} = $\sum$ vrednosti piksela mape gustine
+            \item Fiksna $\sigma=15$ (kontrolisano poređenje) vs. adaptivna $\sigma$ (u daljem radu)
+            \item Prednost: Model uči distribuciju, robustan na okluzije
+        \end{itemize}
+        
+        \column{0.42\textwidth}
+        \begin{center}
+            \includegraphics[width=\textwidth]{figures/density_map_illustration.png}\\[0.2em]
+            {\scriptsize Slika $\rightarrow$ anotacije $\rightarrow$ mapa gustine}
+        \end{center}
+    \end{columns}
+\end{frame}
+
+% Slide 4: Architectures
+\begin{frame}{Arhitekture: MCNN vs CSRNet}
+    \begin{columns}[T]
+        \column{0.48\textwidth}
+        \textbf{MCNN} (Zhang et al., 2016)
+        \begin{itemize}
+            \item Multi-column CNN
+            \item Paralelne grane sa različitim veličinama filtera (5x5, 7x7, 9x9)
+            \item Spajanje mapa na kraju
+            \item 64K parametara
+            \item Učenje od nule (from scratch)
+        \end{itemize}
+        
+        \column{0.48\textwidth}
+        \textbf{CSRNet} (Li et al., 2018)
+        \begin{itemize}
+            \item Duboka arhitektura sa dilated konvolucijama
+            \item Frontend: VGG16 (pretrained na ImageNet)
+            \item Backend: Dilated konvolucije (veće receptivno polje bez downsampling-a)
+            \item 16M parametara
+        \end{itemize}
+    \end{columns}
+    
+    \vspace{0.5cm}
+    \textbf{Hipoteza}: Duboka dilated arhitektura (CSRNet) trebala bi da nadmaši multi-column pristup (MCNN) na gustim scenama.
+\end{frame}
+
+% Slide 5: Methodology
+\begin{frame}{Metodologija eksperimenta}
+    \begin{itemize}
+        \item \textbf{Dataset}: ShanghaiTech Part A
+        \begin{itemize}
+            \item 300 trening slika, 182 test slike
+            \item Do ~3000 ljudi po slici (visoka gustina)
+        \end{itemize}
+        \item \textbf{Trening}:
+        \begin{itemize}
+            \item Optimizator: SGD sa momentumom 0.95
+            \item Loss: MSE (pixel-wise) na mapi gustine
+            \item 50 epoha, batch size 4, seed 42
+            \item Bez augmentacije (kontrolisano poređenje modela)
+        \end{itemize}
+        \item \textbf{Metrike}: MAE (Mean Absolute Error), RMSE (Root Mean Squared Error)
+        \item \textbf{Konvencija}: Broj ljudi = integral mape gustine
+    \end{itemize}
+\end{frame}
+
+% Slide 6: Results - Main Table
+\begin{frame}{Rezultati: Poređenje na test skupu}
+    \begin{table}
+        \centering
+        \begin{tabular}{@{}lcccc@{}}
+            \toprule
+            \textbf{Model} & \textbf{Test MAE} & \textbf{Test RMSE} & \textbf{Parametri} & \textbf{Najbolja epoha} \\
+            \midrule
+            MCNN & 315.23 & 429.16 & 64,385 & 50 \\
+            CSRNet & \textbf{217.13} & \textbf{342.66} & 16,263,489 & 34 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    
+    \vspace{0.5cm}
+    \textbf{Rezultat}: CSRNet je signifikantno bolji:
+    \begin{itemize}
+        \item MAE ~31\% niži (bolji)
+        \item RMSE ~20\% niži (manja varijansa greške)
+        \item Potvrđena hipoteza o superiornosti dubokih dilated arhitektura
+    \end{itemize}
+\end{frame}
+
+% Slide 7: Training Dynamics
+\begin{frame}{Rezultati: Dinamika treniranja}
+    \begin{figure}
+        \centering
+        \includegraphics[width=0.75\textwidth]{figures/training_curves.png}
+        \caption{Krive greške tokom treniranja (train vs validation MAE)}
+    \end{figure}
+    
+    \textbf{Analiza}:
+    \begin{itemize}
+        \item CSRNet (pretrained VGG): Brza konvergencija, ali \textbf{overfitting} posle epohe 34 (val MAE raste, train MAE opada)
+        \item MCNN (from scratch): Sporiji konvergencija, stabilniji do kraja, ali na višem nivou greške
+    \end{itemize}
+\end{frame}
+
+% Slide 8: Gap Analysis
+\begin{frame}{Analiza: Razlika u odnosu na originalne radove}
+    \begin{table}
+        \centering
+        \begin{tabular}{@{}lcc|cc@{}}
+            \toprule
+            & \multicolumn{2}{c|}{\textbf{Naš rezultat}} & \multicolumn{2}{c}{\textbf{Originalni paper}} \\
+            \textbf{Model} & MAE & RMSE & MAE & RMSE \\
+            \midrule
+            MCNN & 315 & 429 & $\sim$110 & $\sim$173 \\
+            CSRNet & 217 & 343 & $\sim$68 & $\sim$106 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    
+    \vspace{0.3cm}
+    \textbf{Razlozi odstupanja} (sistematski, ne utiču na poređenje):
+    \begin{itemize}
+        \item Nema augmentacije podataka (random crops, flips)
+        \item Nema learning rate scheduling
+        \item Fiksna $\sigma$ (umesto adaptivne)
+        \item Manji broj epoha (50 vs. više stotina)
+    \end{itemize}
+    
+    \textbf{Važno}: Relativni odnos je isti kao u literaturi (CSRNet < MCNN).
+\end{frame}
+
+% Slide 9: Conclusion
+\begin{frame}{Zaključak}
+    \begin{itemize}
+        \item \textbf{CSRNet superiorniji} od MCNN za brojanje u gustim gužvama na ShanghaiTech Part A
+        \item Tradeoff kapaciteta i veličine skupa podataka:
+        \begin{itemize}
+            \item Veliki model (CSRNet, 16M) brže uči ali overfituje na malom datasetu (300 slika)
+            \item Mali model (MCNN, 64K) sporiji ali stabilniji
+        \end{itemize}
+        \item Validnost metodologije: Poređenje pod identičnim uslovima eliminiše uticaj pipeline-a
+        \item \textbf{Budući rad}:
+        \begin{itemize}
+            \item Augmentacija podataka (kritično za CSRNet)
+            \item Adaptivna $\sigma$ za mapu gustine
+            \item Learning rate scheduling i duži trening
+        \end{itemize}
+    \end{itemize}
+    
+    \vspace{0.5cm}
+    \centering
+    Hvala na pažnji!
+\end{frame}
+
+\end{document}
