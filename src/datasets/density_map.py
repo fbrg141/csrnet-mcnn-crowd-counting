@@ -29,7 +29,7 @@ def fixed_sigma_density_map(
     for x, y in points:
         ix, iy = int(round(x)), int(round(y))
         if 0 <= ix < width and 0 <= iy < height:
-            density[iy, ix] = 1.0
+            density[iy, ix] += 1.0
 
     density = gaussian_filter(density, sigma=sigma)
     return density

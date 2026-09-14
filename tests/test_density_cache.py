@@ -145,6 +145,35 @@ def test_cache_path_contains_version(tmp_path: Path) -> None:
     assert f"v{CACHE_VERSION}_" in str(path), path
 
 
+def test_cache_version_change_ignores_old_map(tmp_path: Path, monkeypatch) -> None:
+    """A version bump generates a fresh map and leaves the old cache intact."""
+    import src.datasets.dataset as dmod
+
+    _make_fake_shanghaitech(tmp_path, n=1)
+    current_version = dmod.CACHE_VERSION
+    with monkeypatch.context() as old_version:
+        old_version.setattr(dmod, "CACHE_VERSION", current_version - 1)
+        old_ds = _ds(tmp_path)
+    old_path = old_ds._cache_path("IMG_1")
+    stale = np.full((16, 16), -1.0, dtype=np.float32)
+    old_ds._save_npy_atomic(stale, old_path)
+
+    ds = _ds(tmp_path)
+    new_path = ds._cache_path("IMG_1")
+    assert new_path != old_path
+    assert not new_path.exists()
+
+    _, density = ds[0]
+    fresh = CrowdCountingDataset(
+        tmp_path, part="A", split="train", downsample_factor=4, sigma=8.0,
+        use_cache=False,
+    )
+    _, expected = fresh[0]
+    np.testing.assert_array_equal(density, expected)
+    np.testing.assert_array_equal(np.load(new_path), expected.squeeze(0))
+    np.testing.assert_array_equal(np.load(old_path), stale)
+
+
 def test_atomic_write_no_tmp_leftover(tmp_path: Path) -> None:
     """No .tmp files remain after caching (atomic write cleans up)."""
     _make_fake_shanghaitech(tmp_path)

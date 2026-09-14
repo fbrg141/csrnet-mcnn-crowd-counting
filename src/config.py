@@ -13,7 +13,7 @@ DENSITY_CACHE_DIR = PROCESSED_DATA_DIR / "density_maps"
 # fixed_sigma_density_map / adaptive_density_map), so on-disk caches built
 # with the old logic are no longer loaded. It is embedded in every cache
 # path, so a bump silently invalidates the whole cache.
-CACHE_VERSION = 1
+CACHE_VERSION = 2
 
 # Dataset
 SHANGHAITECH_DIR = RAW_DATA_DIR / "ShanghaiTech"

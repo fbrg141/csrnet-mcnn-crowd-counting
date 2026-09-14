@@ -52,7 +52,7 @@ Density map (H × W × 1):
 
 **Step 1:** Create an empty zero matrix of the same size as the image.
 
-**Step 2:** For each (x, y) head coordinate, place a 1 at that position.
+**Step 2:** For each (x, y) head coordinate, add 1 at that position so annotations sharing a pixel accumulate.
 
 ```
 height, width = image.shape[:2]
@@ -60,7 +60,7 @@ density = np.zeros((height, width))
 
 for (x, y) in head_coordinates:
     ix, iy = int(round(x)), int(round(y))
-    density[iy, ix] = 1.0
+    density[iy, ix] += 1.0
 ```
 
 **Step 3:** Convolve with a Gaussian kernel (blur).
