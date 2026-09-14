@@ -1,6 +1,6 @@
 [project]
 name = "csrnet-mcnn-crowd-counting"
-version = "0.1.0"
+version = "0.1.1"
 description = "Comparative analysis of CSRNet and MCNN models for crowd counting"
 readme = "README.md"
 requires-python = ">=3.11,<3.12"

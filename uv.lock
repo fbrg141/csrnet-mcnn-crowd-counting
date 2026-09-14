@@ -204,7 +204,7 @@ wheels = [
 
 [[package]]
 name = "csrnet-mcnn-crowd-counting"
-version = "0.1.0"
+version = "0.1.1"
 source = { virtual = "." }
 dependencies = [
     { name = "h5py", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
