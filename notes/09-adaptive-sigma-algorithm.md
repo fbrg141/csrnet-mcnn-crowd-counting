@@ -4,6 +4,15 @@ The **adaptive sigma** (geometry-adaptive) algorithm generates a density map whe
 
 ---
 
+> **Correction to this historical sketch:** overlap of normalized Gaussian kernels
+> does not itself lose count: their masses add. The old "45 vs 50" drawing below
+> is not a computed result or evidence against fixed sigma. Count loss can instead
+> come from overwritten impulses, out-of-bounds annotations or clipped kernels.
+> The overwrite bug is fixed (`+=`, cache v2); completed experiments use fixed
+> sigma=15. Adaptive boundary loss need not be negligible, and isolated heads with
+> distant neighbors do not use fallback sigma unless neighbor distances are absent
+> or near zero. Timings/accuracy recommendations here are illustrative, not benchmarks.
+
 ## 9.1 The Problem with Fixed Sigma
 
 Fixed sigma uses the same Gaussian width for every head:
@@ -38,7 +47,7 @@ $$
 d_i = \frac{1}{k}\times\sum_{j=1..k} distance(head_i, neighbour_i)
 $$
 
-**Default parameters** (from MCNN paper):
+**Local default parameters** (not a claim of exact paper settings):
 - k = 4 (number of neighbours)
 - β = 0.3 (scaling factor)
 - fallback σ = 2.0 (when avg distance ≈ 0)

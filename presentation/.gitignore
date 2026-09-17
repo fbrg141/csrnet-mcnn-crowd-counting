@@ -1,4 +1,4 @@
-presentation/aux
+/aux/
 *.aux
 *.log
 *.nav

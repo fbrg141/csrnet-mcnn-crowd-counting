@@ -1,338 +1,115 @@
-# Comparative Analysis of CSRNet and MCNN for Crowd Counting
+# Poređenje MCNN i CSRNet modela za brojanje ljudi u gužvi
 
-**Authors:** Uroš Dimitrijević, Miloš Kutlešić
+**Autori:** Uroš Dimitrijević, Miloš Kutlešić
 
-**Course project — Machine Learning**
+**Projektni rad iz predmeta Mašinsko učenje**
+**Obuhvat završenih eksperimenata:** ShanghaiTech Part A
 
-**Dataset:** ShanghaiTech (Part A)
+## Sažetak
 
----
+Poređene su dve implementirane mreže za regresiju mape gustine: MCNN i CSRNet-B sa pretreniranim VGG16 frontend-om. U budžetu od 50 epoha sprovedeno je 12 MCNN konfiguracija na seed-u 42 i četiri dodatna treninga za potvrdu početne i izabrane konfiguracije na seed-ovima 123 i 2026. CSRNet je zasebno završen i evaluiran samo na seed-u 42. Na zvanične 182 test slike podešeni MCNN postiže MAE 316.3083 i RMSE 431.9880, a CSRNet MAE 233.4080 i RMSE 376.9634. To su opisni rezultati jednog zajedničkog seed-a, ne dokaz statističke značajnosti ili opšte superiornosti arhitekture. Za Part B nema završenih rezultata u ovom izveštaju.
 
-## Abstract
+## 1. Problem i modeli
 
-This project compares two neural-network architectures for crowd counting —
-**MCNN** (Multi-Column CNN, Zhang et al. 2016) and **CSRNet** (Congested Scene
-Recognition Network, Li et al. 2018) — on the ShanghaiTech Part A dataset. Both
-models estimate crowd size by regressing a *density map* and integrating it to a
-head count, rather than detecting individuals. We implement both models from
-scratch under a shared data pipeline and train them under matched conditions
-(SGD + momentum 0.95, 50 epochs, identical density-map and counting conventions)
-on Google Colab with a Tesla T4 GPU.
+U gustim scenama okluzija i male dimenzije glava otežavaju detekciju pojedinačnih osoba. Umesto okvira, koristi se mapa gustine čija suma procenjuje broj ljudi. MCNN [1] koristi tri paralelne konvolucione grane različitih receptivnih polja. CSRNet [2] koristi pretrenirani VGG16 frontend i šest dilatiranih konvolucija u backend-u. Konvolucija 3×3 sa dilatacijom 2 ima efektivnu veličinu 5×5, bez povećanja broja težina kernela.
 
-Our results: MCNN reaches **test MAE 315.23 / RMSE 429.16**, while CSRNet reaches
-**test MAE 217.13 / RMSE 342.66**. CSRNet outperforms MCNN by ~31% on MAE and
-~20% on RMSE, confirming the research hypothesis that the deeper dilated
-architecture is better suited to dense-crowd counting. Although both absolute
-numbers are above the values reported in the original papers, the *relative
-ordering* matches the literature, and we attribute the absolute gap to a set of
-documented deviations (no data augmentation, no learning-rate scheduling,
-fixed-sigma density maps, a smaller training budget) that affect both models
-equally and therefore do not bias the comparison.
+| Osobina | MCNN | CSRNet |
+|---|---|---|
+| Parametri | 64,385 | 16,263,489 |
+| Inicijalizacija | Od nule | ImageNet VGG16 frontend; novi backend |
+| Izlazni korak (stride) | 4 | 8 |
+| Ulaz | RGB u [0,1] | ImageNet normalizacija |
 
----
+Lokalni MCNN ima dve konvolucije po grani i fuziju 120 kanala; ne predstavlja se kao tačna reprodukcija svih slojeva i predtreniranja kolona iz rada [1].
 
-## 1. Introduction and motivation
+Isti podaci i budžet ne izoluju samo arhitekturu: razlikuju se pretreniranje, normalizacija, izlazna rezolucija, kapacitet i postupak podešavanja. Rezultat se odnosi na ove celovite konfiguracije.
 
-Counting people in crowded images is a problem where classical object detection
-(e.g. YOLO) struggles: in dense scenes people are heavily occluded, very small,
-and too numerous for per-instance bounding boxes to be reliable. **Crowd
-counting** sidesteps this by regressing a continuous **density map** over the
-image, whose spatial integral equals the number of heads. A model only has to
-learn "how crowded is each region", not "where exactly is each person".
+## 2. Podaci, ciljne mape i metrike
 
-The research question of this project is:
+ShanghaiTech Part A [1,3] ima 300 zvaničnih trening i 182 test slike. Poslednjih 10% **leksikografski sortiranih** trening naziva čini validaciju: 270 trening / 30 validacija. To nije nasumičan niti stratifikovan uzorak; mala validacija može biti nereprezentativna. Svi eksperimenti koriste isti split i isti hash sadržaja trening podataka.
 
-> Which model, **MCNN** or **CSRNet**, gives better results for crowd counting
-> in terms of estimation accuracy and stability, on ShanghaiTech Part A?
+Slike su promenjene na 768×1024 (visina×širina). Koriste se fiksne Gausove mape sa sigma=15, ispravljena akumulacija mase i keš **v2**. Adaptivni režim postoji u kodu, ali nije korišćen. Izlazne ciljne mape odgovaraju koraku modela uz očuvanje mase. Predikcija i cilj broje se kao `density.sum()`.
 
-The two architectures represent two influential design philosophies:
+Za grešku broja ljudi e_i na slici i, MAE = mean(|e_i|), a RMSE = sqrt(mean(e_i²)). RMSE jače kažnjava velike greške; nije mera varijanse između trening seed-ova i sam po sebi ne dokazuje stabilnost.
 
-- **MCNN** — a *multi-column* network: several parallel branches with different
-  receptive fields handle scenes of varying density, then merge.
-- **CSRNet** — a *single-column* network that reuses a pretrained VGG16 frontend
-  and adds **dilated convolutions** to enlarge the receptive field without
-  losing resolution.
+## 3. Protokol i poreklo dokaza
 
-Comparing them under identical conditions lets us isolate the effect of
-architecture from the effect of the data pipeline.
+- Svaki trening: 50 epoha, batch 4, SGD, srednji pikselni MSE, bez augmentacije, rasporeda stope učenja ili ranog zaustavljanja. `drop_last=True` u treningu; najbolji checkpoint bira se po validacionom MAE.
+- MCNN mreža pretrage: lr `[1e-6, 3e-6, 1e-5]` × momentum `[0.90, 0.95]` × weight decay `[0, 0.0001]`. Svih 12 pokušaja je završeno; 600 epoha pretrage. Četiri potvrde dodaju 200 epoha, bez ponavljanja seed-a 42.
+- Početna MCNN konfiguracija: `(1e-6, 0.95, 0)`. Pobednik: `(1e-5, 0.95, 0.0001)`, određen **isključivo validacionim MAE**; kod izjednačenja koristi se ID konfiguracije.
+- CSRNet: `(1e-5, 0.95, 0)`, seed 42, bez mrežne pretrage. Lokalni CUDA FP32 trening na RTX 4070; sačuvano vreme treninga 1583.2287 s. To nije vreme inferencije niti međuhardverski benchmark.
+- Test nije korišćen za rangiranje ove pretrage. Međutim, test rezultati ranijih pilot-eksperimenata već su viđeni: test nije globalno netaknut skup.
 
----
+Izvor MCNN dokaza je korisnička arhiva `crowd-hyperparameters-results.zip`; originalni JSON/CSV fajlovi su sačuvani pod `evidence/mcnn/`. Svih 48 referenciranih MCNN izveštajnih hash-eva (config/history/summary za 16 treninga) provereno je. Arhiva **ne sadrži težine**: njihove zapisane hash-eve ne predstavljamo kao nezavisno verifikovane težine. CSRNet originali su iz lokalnog direktorijuma `csrnet_local_partA_seed42_e50_b4_lr1e-5_v2_20260917T133646`; njegov kompletan manifest, uključujući oba lokalna checkpoint-a, proverava se pri pripremi, a laki originalni JSON fajlovi čuvaju se u `evidence/csrnet/`. Težine i dataset nisu uključeni u laki paket. Skripta dodatno proverava sačuvane hash-eve, pune istorije i saglasnost metrika.
 
-## 2. Dataset
+## 4. Rezultati
 
-**ShanghaiTech** (Part A), 482 images total, obtained via Kaggle
-(`tthien/shanghaitech`):
+### 4.1 Glavno poređenje — seed 42, Part A, 182 test slike
 
-| Split | Images | Use | Characteristics |
-|-------|-------:|-----|-----------------|
-| Train | 300 | training (270) + validation (30, `VAL_SPLIT = 0.1`) | dense crowds, up to ~3000 people/image |
-| Test  | 182 | final evaluation | same distribution |
+| Konfiguracija | Test MAE | Test RMSE | Najbolja epoha | Validacioni MAE |
+|---|---:|---:|---:|---:|
+| MCNN početni | 2509.3384 | 2531.8389 | 50 | 2630.5537 |
+| MCNN podešeni | 316.3083 | 431.9880 | 50 | 467.0918 |
+| CSRNet | 233.4080 | 376.9634 | 31 | 360.9125 |
 
-Annotations are per-head `(x, y)` coordinates stored in `.mat` files
-(`ground-truth/GT_IMG_*.mat`). The pipeline converts these into density maps by
-placing a Gaussian kernel at each head location, normalised so that each kernel
-integrates to 1; the density map then sums to the head count.
+CSRNet u ovom poređenju ima 26.21% niži MAE i 12.74% niži RMSE od podešenog MCNN-a. Početni MCNN je nedovoljno istreniran u datom budžetu; njegova velika greška nije procena maksimalne sposobnosti arhitekture.
 
-- **Density mode used:** fixed-sigma (`FIXED_SIGMA = 15.0`). The papers use
-  geometry-adaptive kernels; the adaptive code is implemented in our repo but
-  not enabled for these runs (see §7 / issue #25).
-- **Input size:** resized to 768×1024 (`DEFAULT_IMAGE_SIZE`).
-- **Density-map caching:** adaptive generation is expensive (~500 ms/image),
-  so maps are cached to disk (`data/processed/density_maps/`) and loaded on
-  later epochs (issue #15). The cache key encodes every parameter that affects
-  the density output, including a `CACHE_VERSION`, so a stale cache is never
-  loaded.
+![Glavno poređenje](figures/test_comparison.png)
 
----
+### 4.2 MCNN — odvojena analiza tri seed-a
 
-## 3. Models
+| Konfiguracija | Seed | Test MAE | Test RMSE |
+|---|---:|---:|---:|
+| Početni | 42 | 2509.3384 | 2531.8389 |
+| Početni | 123 | 1113.4621 | 1183.9319 |
+| Početni | 2026 | 753.4451 | 912.1857 |
+| Podešeni | 42 | 316.3083 | 431.9880 |
+| Podešeni | 123 | 249.3177 | 337.7203 |
+| Podešeni | 2026 | 388.2216 | 538.1892 |
 
-### 3.1 MCNN — Multi-Column CNN
+| Konfiguracija | MAE: srednja vrednost ± uzoračka SD | RMSE: srednja vrednost ± uzoračka SD |
+|---|---:|---:|
+| MCNN početni | 1458.7485 ± 927.4737 | 1542.6522 ± 867.3692 |
+| MCNN podešeni | 317.9492 ± 69.4665 | 435.9658 ± 100.2936 |
 
-MCNN (Zhang et al., CVPR 2016) uses three parallel convolutional columns with
-different filter sizes (and thus different receptive fields) to handle crowds of
-varying density, then merges them into a single density map.
+SD koristi imenilac n−1, n=3; nije standardna greška niti interval poverenja. Podešeni MCNN ima manju posmatranu varijabilnost. Nema odgovarajuće troseed analize za CSRNet: njegov jedan rezultat ne treba mešati sa MCNN prosekom u glavnoj tabeli niti mu pripisivati SD=0.
 
-- **Training:** from scratch (no pretraining).
-- **Output stride:** 4 (two 2×2 pooling layers).
-- **Input normalization:** raw [0, 1] (image / 255).
-- **Parameters:** 64,385.
+![Varijabilnost MCNN](figures/seed_variability.png)
 
-### 3.2 CSRNet — Congested Scene Recognition Network
+### 4.3 Pretraga i dinamika učenja
 
-CSRNet (Li et al., CVPR 2018) uses the first ten layers of a **pretrained
-VGG16** as a frontend (transfer learning from ImageNet) and replaces the
-backend with **dilated convolutions** that enlarge the receptive field without
-downsampling, preserving spatial resolution of the density map.
+![Svih 12 pokušaja](figures/search_results.png)
 
-- **Training:** fine-tuning the pretrained VGG16 frontend.
-- **Output stride:** 8 (VGG frontend + dilated backend).
-- **Input normalization:** ImageNet (mean/std = [0.485, 0.456, 0.406] /
-  [0.229, 0.224, 0.225]), required because of the pretrained frontend.
-- **Parameters:** 16,263,489.
+Pobednički validacioni MAE je 467.0918; ista stopa učenja i momentum bez weight decay daju 467.1052. Razlika je samo **0.0135 MAE**. To je numerički pobednik, ne ubedljiv dokaz koristi regularizacije. Ne sprovodimo test statističke značajnosti. Svih 12 konfiguracija imaju najbolju epohu 50, na granici budžeta: nije dokazana konvergencija. Pretraga poredi budžet epoha, ne identično vreme izvršavanja niti konačne optimume.
 
-### 3.3 Counting convention
+![Originalne krive](figures/training_curves.png)
 
-Both models predict a density map; the head count is recovered as the
-**integral of the density map** (`density.sum()`). Ground-truth counts use the
-same convention, so training and evaluation measure the same quantity. MAE and
-RMSE are computed on these per-image counts.
+CSRNet ima minimum validacionog MAE u epohi 31. Za tumačenje kasnijih oscilacija koriste se originalne pune krive, a ne ranije ručno prepisani nizovi. Ranije tvrdnje o glatkom rastu posle epohe 34 nisu dokaz za ovaj eksperiment. Razlika između validacionog i test MAE ne dokazuje grešku pipeline-a, ali bez analize distribucija ne pripisujemo je pouzdano samo veličini split-a.
 
----
+## 5. Ograničenja i zaključak
 
-## 4. Training setup
+CSRNet je bolji po oba test kriterijuma u izvedenom poređenju seed-a 42, dok MCNN snažno zavisi od stope učenja i inicijalizacije u budžetu od 50 epoha. To ne potvrđuje univerzalnu superiornost, statističku značajnost niti bolju stabilnost CSRNet-a. MCNN je dodatno podešavan, CSRNet nije; pretraga troši dodatni trening budžet. Izostanak augmentacije, fiksne mape i ograničen trening razlikuju ovaj rad od originalnih protokola. Ti faktori ne moraju jednako uticati na modele; uzroci odstupanja od literature nisu izolovani ablacijama.
 
-Both models are trained by a single model-agnostic loop (`src/train.py`); the
-per-model differences come from `src/config.py` → `MODEL_CONFIGS`:
+Budući rad: CSRNet seed-ovi 123 i 2026, Part B, duži trening, augmentacija, adaptivne mape, raspored stope učenja, reprezentativnija validacija i posebno merenje inferencije. Za njih ovde nema završenih rezultata. Istorijske beleške 19 i 20 zadržane su kao pilot-evidencija, ne kao važeći finalni rezultati. Ocena projekta ili predaja nastavniku nisu potvrđene ovim eksperimentima.
 
-| Model  | Output stride | Input norm | Learning rate | Momentum |
-|--------|--------------:|------------|--------------:|---------:|
-| MCNN   | 4             | raw [0,1]  | 1e-5 *        | 0.95     |
-| CSRNet | 8             | ImageNet   | 1e-5          | 0.95     |
+## 6. Reprodukcija
 
-- **Loss:** pixel-wise MSE (the Euclidean loss used by both papers).
-- **Optimizer:** SGD with momentum 0.95.
-- **Epochs:** 50. **Batch size:** 4. **Seed:** 42.
-- **Checkpointing:** the best-validation-MAE `state_dict` is saved to
-  `reports/checkpoints/...best.pth`.
-
-`*` **Documented deviation — MCNN learning rate.** The MCNN paper uses
-`lr = 1e-6`, but paired with a much larger training budget (~100k+ iterations,
-batch 1). Our 50-epoch / batch-4 budget is only ~3,375 iterations. We first ran
-MCNN at the paper's 1e-6 and observed a **linear, non-converging descent**
-(val MAE sliding from 4434 to 2630 over 50 epochs with no plateau) — the model
-was undertrained, not slow at converging. Raising lr to 1e-5 (matching the
-paper's *effective gradient budget* better) produced a properly converged run
-with a clear plateau. This deviation is documented in `notes/19` and is the
-same direction the README's config rationale anticipates (CSRNet already uses
-1e-5 because it fine-tunes a pretrained backbone). CSRNet was kept at the
-README's chosen 1e-5 throughout — fine-tuning a pretrained backbone tolerates
-this rate, and a higher rate risks damaging the pretrained features.
-
-Hardware: Google Colab, NVIDIA Tesla T4 (16 GB), CUDA-enabled PyTorch.
-
----
-
-## 5. Experiments and results
-
-### 5.1 Final results (test set, 182 images)
-
-| Model  | test MAE | test RMSE | params     | best epoch |
-|--------|---------:|----------:|-----------:|-----------:|
-| MCNN   | 315.23   | 429.16    | 64,385     | 50         |
-| **CSRNet** | **217.13** | **342.66** | 16,263,489 | 34     |
-
-**CSRNet outperforms MCNN on both metrics:**
-
-- **MAE:** 217.13 vs 315.23 → **~31% lower** (more accurate).
-- **RMSE:** 342.66 vs 429.16 → **~20% lower** (less variance / more stable).
-
-The research hypothesis is confirmed: the deeper dilated architecture gives
-better and more stable crowd counts on dense scenes than the multi-column
-architecture.
-
-### 5.2 Comparison to the original papers
-
-| Model  | our test MAE | paper test MAE | our test RMSE | paper test RMSE |
-|--------|-------------:|---------------:|--------------:|----------------:|
-| MCNN   | 315.23       | ~110           | 429.16        | ~173            |
-| CSRNet | 217.13       | ~68            | 342.66        | ~106            |
-
-Both models are ~2–3× the paper's MAE. The gap is consistent across both models
-and is traced in §6 to a shared set of deviations — it is **not** a
-model-specific problem. Critically, the **relative ordering matches the
-literature** (CSRNet < MCNN), so the comparison conclusion is valid even though
-the absolute numbers differ.
-
----
-
-## 6. Discussion
-
-### 6.1 Why our numbers are above the papers
-
-The gap is caused by deviations from the paper setups that affect **both**
-models equally and therefore do not bias the comparison:
-
-| Deviation | Paper setup | Our setup | Issue |
-|-----------|-------------|----------|-------|
-| Data augmentation | random crops + horizontal flips | none | #14 |
-| Learning-rate schedule | decay over training | fixed lr | #24 |
-| Density-map kernels | geometry-adaptive sigma | fixed sigma = 15 | #25 |
-| Training budget | hundreds of epochs | 50 epochs | — |
-
-Each is a known, individually-addressable improvement (issues #14, #24, #25 are
-open). The adaptive-density-map code and the density cache already exist in the
-repo, so the lowest-effort next step is enabling adaptive density (#25),
-followed by lr scheduling (#24) and augmentation (#14).
-
-### 6.2 A finding worth reporting: training dynamics differ by capacity
-
-The two models behaved very differently, which is itself an informative result.
-
-**MCNN (small, from scratch).** Random initialisation produces a density map
-summing to ~4700 (val MAE ~4400 at epoch 1). It descends smoothly to a
-**plateau** around epoch 30 (val MAE 465 at epoch 50). It does **not** overfit
-within 50 epochs — train and val MAE stay close.
-
-**CSRNet (large, pretrained frontend).** The pretrained VGG16 frontend gives a
-strong initialisation: val MAE only ~544 at epoch 1. It reaches its best val
-MAE (328.22) at **epoch 34**, then **overfits**: train MAE keeps dropping
-(292 → 278) while val MAE rises (328 → 345). The `best.pth` checkpoint correctly
-froze at epoch 34.
-
-![Training curves](figures/training_curves.png)
-
-*Figure 1: Left — validation MAE vs epoch (log y). MCNN descends steadily to a plateau; CSRNet reaches its best at epoch 34 then rises. Right — CSRNet train vs validation, showing the overfitting divergence after epoch 34 (train keeps dropping, val rises).*
-
-```
-        MCNN                 CSRNet
-        train   val          train    val
-ep  1:  4466   4434          513     544
-ep 20:   672    684          333     363
-ep 34:   ~460   ~490          292    328   ← CSRNet best (checkpoint)
-ep 50:    386    465          279    345   ← CSRNet overfitting
-```
-
-**Interpretation.** The larger model (CSRNet, 16M parameters) overfits the
-270-image training set earlier and harder than the small one (MCNN, 64k
-parameters). This illustrates the **model-capacity vs data-size trade-off** and
-is exactly why data augmentation (#14) matters more for CSRNet than for MCNN.
-It also explains why CSRNet's *best* epoch (34) is earlier than MCNN's (50): the
-larger model exhausts the information in the small dataset sooner.
-
-### 6.3 Validation vs test discrepancy
-
-Both models' **test** MAE came out lower than their **val** MAE:
-
-| Model  | val MAE | test MAE |
-|--------|--------:|---------:|
-| MCNN   | 464.74  | 315.23   |
-| CSRNet | 328.22  | 217.13   |
-
-This is expected, not a bug: the validation set is the 30-image held-out tail of
-the training set (`VAL_SPLIT = 0.1`), so it is small and noisy. The test set
-(182 images) is larger and gives the more stable, reportable number, which is
-why §5 reports test MAE/RMSE.
-
----
-
-## 7. Conclusion
-
-Under a constrained 50-epoch training budget on ShanghaiTech Part A, **CSRNet
-outperforms MCNN** (test MAE 217 vs 315, RMSE 343 vs 429), confirming the
-research hypothesis that the deeper dilated-convolution architecture is better
-suited to dense-crowd counting than the multi-column architecture. This matches
-the direction of the original papers despite an absolute gap caused by the
-documented deviations in §6.1.
-
-Two more nuanced conclusions follow from the dynamics:
-
-1. **Architecture matters, but so does capacity vs data size.** CSRNet's larger
-   capacity gives it a better final number *and* an earlier best epoch, but it
-   also overfits sooner — a trade-off that data augmentation would mitigate.
-2. **Faithfulness must match both hyperparameters and budget.** Reproducing a
-   paper's learning rate without its training budget (as in our first MCNN run
-   at lr=1e-6) does not reproduce its results; the effective gradient budget must
-   be matched. We resolved this for MCNN by raising the learning rate and
-   documented the deviation.
-
-### 7.1 Future work (in effort order)
-
-1. **Adaptive density maps** (#25) — already implemented; flip a config flag and
-   rebuild the cache. Lowest effort, improves paper-faithfulness.
-2. **Learning-rate scheduling** (#24) — start high, decay low; ~10–15 line change
-   to the training loop.
-3. **Data augmentation** (#14) — random crops + flips; most important for CSRNet
-   given the overfitting observed in §6.2.
-4. **Longer training** — directly addresses the undertraining; needs more Colab
-   time.
-5. **Part B** — the same pipeline can be re-run on the sparser Part B split to
-   test whether the CSRNet > MCNN conclusion holds across crowd densities.
-
----
-
-## 8. Reproducibility
-
-- **Code:** https://github.com/fbrg141/csrnet-mcnn-crowd-counting
-- **Environment:** `uv`-managed, locked dependencies (`uv.lock`), Python 3.11,
-  PyTorch. Setup: `uv sync --locked`.
-- **Commands** (run from the project root):
+Iz korena repozitorijuma, bez treninga, GPU-a ili dataseta:
 
 ```bash
-# data
-uv run --locked python scripts/download_data.py
-uv run --locked python scripts/precompute_density_maps.py --parts A --models mcnn csrnet
-
-# train
-uv run --locked python -m src.train --model mcnn   --part A --lr 1e-5 --epochs 50
-uv run --locked python -m src.train --model csrnet --part A --epochs 50 \
-    --out-dir reports/checkpoints/csrnet
-
-# evaluate (writes reports/<model>_partA_seed42_metrics.json)
-uv run --locked python -m src.evaluate --model mcnn   --part A \
-    --ckpt reports/checkpoints/mcnn_partA_seed42_best.pth
-uv run --locked python -m src.evaluate --model csrnet --part A \
-    --ckpt reports/checkpoints/csrnet/csrnet_partA_seed42_best.pth
+uv sync --locked
+uv run --locked python scripts/plot_training_curves.py
+uv run --locked python -m pytest tests/
+cd presentation
+tectonic --keep-logs presentation.tex
 ```
 
-- **Metrics artifacts:** `reports/mcnn_partA_seed42_metrics.json`,
-  `reports/csrnet_partA_seed42_metrics.json`.
-- **Training logs & lr analysis:** `notes/19-mcnn-learning-rate-tuning.md`,
-  `notes/20-results-mcnn-vs-csrnet.md`.
-- **Figure:** `reports/figures/training_curves.png` (regenerate with
-  `scripts/plot_training_curves.py`).
+Tectonic se instalira zasebno; prvo pokretanje preuzima TeX resurse. Potpuna XeLaTeX instalacija (dva prolaza) je alternativa. Lokalni sistemski XeLaTeX nema generisan format, pa je finalni PDF uspešno izgrađen Tectonic-om.
 
----
+Skripta izvodi `results_summary.json` i četiri grafikona u `reports/figures/` (isti fajlovi se koriste u prezentaciji) iz uključenih originala. Protokol, komande novog treninga, potvrda i evaluacije su u [uputstvu](../docs/hyperparameter-search.md). Novi trening koristi zaseban izlazni direktorijum; izveštajni paket bez težina nije dovoljan za nastavak treninga ili ponovnu inferenciju. Za glavno poređenje MCNN težine treba pribaviti iz originalnog Drive-a ili ponoviti trening.
 
-## 9. References
+## 7. Literatura
 
-1. Zhang, Y., Zhou, D., Chen, S., Gao, S., & Ma, Y. (2016).
-   *Single-Image Crowd Counting via Multi-Column Convolutional Neural Network.*
-   CVPR 2016.
-   https://openaccess.thecvf.com/content_cvpr_2016/html/Zhang_Single-Image_Crowd_Counting_CVPR_2016_paper.html
-
-2. Li, Y., Zhang, X., & Chen, D. (2018).
-   *CSRNet: Dilated Convolutional Neural Networks for Understanding the Highly
-   Congested Scenes.* CVPR 2018. https://arxiv.org/abs/1802.10062
-
-3. ShanghaiTech crowd counting dataset (via Kaggle, `tthien/shanghaitech`).
+1. Zhang, Y., Zhou, D., Chen, S., Gao, S., & Ma, Y. (2016). *Single-Image Crowd Counting via Multi-Column Convolutional Neural Network*. CVPR. https://openaccess.thecvf.com/content_cvpr_2016/html/Zhang_Single-Image_Crowd_Counting_CVPR_2016_paper.html
+2. Li, Y., Zhang, X., & Chen, D. (2018). *CSRNet: Dilated Convolutional Neural Networks for Understanding the Highly Congested Scenes*. CVPR. https://arxiv.org/abs/1802.10062
+3. ShanghaiTech dataset, Kaggle distribucija: https://www.kaggle.com/datasets/tthien/shanghaitech

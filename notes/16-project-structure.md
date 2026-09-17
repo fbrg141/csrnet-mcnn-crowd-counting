@@ -1,6 +1,13 @@
 # 16 — Project Structure
 
-This note documents how the repository is organized and why — the separation between exploration, production code, utilities, and tests.
+This note preserves the original structural walkthrough. The layout below is a
+historical subset, not a current inventory. See [README](../README.md) and
+[PLAN](../PLAN.md) for maintained navigation and status. Current additions include
+`notebooks/03_hyperparameters.ipynb` (gated Colab training), `src/search.py`,
+`src/runs.py`, `configs/`, `docs/`, curated `reports/evidence/`, shared
+`reports/figures/`, and the final presentation. Script functions are now imported
+by tests; evaluation reuses `src.train.evaluate` for count metrics. Notebook 02 is
+a preserved exploratory prototype, not byte-identical production density code.
 
 ---
 

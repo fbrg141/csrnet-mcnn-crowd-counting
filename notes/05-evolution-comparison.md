@@ -66,7 +66,12 @@ MCNN approach:                    CSRNet approach:
 
 ---
 
-## 5.3 Quantitative Comparison (ShanghaiTech Part A)
+## 5.3 Literature Comparison (ShanghaiTech Part A)
+
+These are published reference numbers, not project measurements. The literature
+column labeled MSE below uses the root-count-error convention (RMSE). The local
+MCNN has 64,385 parameters, not the generic approximate count above; final project
+results and limitations are in [the report](../reports/report.md).
 
 | Model | MAE | MSE | Output size (512×512 input) |
 |---|---|---|---|

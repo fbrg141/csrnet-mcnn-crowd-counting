@@ -133,7 +133,7 @@ def from_config(cls, part="A", split="train",
 | `root` | `SHANGHAITECH_DIR` | Dataset path never changes |
 | `density_mode` | `DEFAULT_DENSITY_MODE` | Project-wide choice |
 | `sigma` | `FIXED_SIGMA` | Hyperparameter, set once |
-| `k`, `beta` | `ADAPTIVE_K`, `ADAPTIVE_BETA` | From the MCNN paper, never change |
+| `k`, `beta` | `ADAPTIVE_K`, `ADAPTIVE_BETA` | Local adaptive-mode defaults; changing them defines a new protocol |
 | `target_size` | `DEFAULT_IMAGE_SIZE` | Project-wide resize |
 | `val_split` | `VAL_SPLIT` | Project-wide split ratio |
 

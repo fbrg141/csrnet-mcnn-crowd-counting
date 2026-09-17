@@ -78,7 +78,7 @@ def test_downsample_factor_one_is_unchanged(tmp_path: Path) -> None:
 **`tmp_path`** is a pytest built-in fixture. Each test gets a fresh, empty temporary directory:
 
 - Automatically created before the test
-- Automatically deleted after the test
+- Managed by pytest; recent run directories may be retained for debugging
 - Unique per test (no interference between tests)
 - A `Path` object, so you can use `/` directly
 
@@ -238,9 +238,9 @@ Without a fixed seed, random data would differ each run, making failures impossi
 from __future__ import annotations
 ```
 
-Enables postponed evaluation of type hints. In Python 3.9 and earlier, type hints like `tuple[int, int]` (lowercase) would crash at import time because `tuple` didn't support subscripting. This import makes all annotations strings (evaluated lazily), so modern type syntax works on older Pythons.
+Enables postponed evaluation of type hints. Before Python 3.9, evaluated type hints like `tuple[int, int]` (lowercase) would fail because built-in `tuple` did not support that generic subscription. This import makes all annotations strings (evaluated lazily), so modern type syntax works on older Pythons.
 
-In Python 3.10+ this is the default behavior, but the import is harmless and makes the code work everywhere.
+In this project's Python 3.11, postponed string annotations still require this import; they are not the default in Python 3.10/3.11. The project supports Python 3.11, not arbitrary older versions.
 
 ---
 

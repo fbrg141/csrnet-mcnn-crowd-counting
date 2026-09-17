@@ -27,7 +27,13 @@ A 9×9 filter sees 81 pixels. On a 30×30 head, that's a meaningful region. On a
 
 ---
 
-## 3.2 MCNN's Solution: Three Parallel Columns
+## 3.2 Local MCNN implementation: Three Parallel Columns
+
+The diagram and code sketch here describe this repository's two-convolution
+columns (64,385 parameters), not a verified exact reconstruction of every layer
+in Zhang et al. The paper's optimization section discusses a fourth convolutional
+layer and separate column pretraining, which this implementation does not perform.
+Do not equate the local model or its results with an exact paper reproduction.
 
 Run three independent conv columns in parallel, each with different filter sizes, then merge.
 

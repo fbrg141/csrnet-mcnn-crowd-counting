@@ -13,7 +13,7 @@ MODELS: dict[str, type] = {
 }
 
 
-def build_model(name: str):
+def build_model(name: str, pretrained: bool = True):
     """Instantiate a model by name.
 
     Args:
@@ -27,4 +27,6 @@ def build_model(name: str):
         raise ValueError(
             f"unknown model {name!r}; available: {sorted(MODELS)}"
         )
+    if key == "csrnet" and not pretrained:
+        return CSRNet(weights=None)
     return MODELS[key]()

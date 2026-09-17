@@ -1,0 +1,37 @@
+{
+  "config": {
+    "baseline": {
+      "lr": 1e-06,
+      "momentum": 0.95,
+      "weight_decay": 0.0
+    },
+    "batch_size": 4,
+    "confirmation_seeds": [
+      123,
+      2026
+    ],
+    "epochs": 50,
+    "grid": {
+      "lr": [
+        1e-06,
+        3e-06,
+        1e-05
+      ],
+      "momentum": [
+        0.9,
+        0.95
+      ],
+      "weight_decay": [
+        0.0,
+        0.0001
+      ]
+    },
+    "model": "mcnn",
+    "num_workers": 0,
+    "part": "A",
+    "seed": 42
+  },
+  "device": "cuda",
+  "root": "/content/crowd-hyperparameters-source-8707906a484f7ef9/data/raw/ShanghaiTech",
+  "source_hash": "d739912349663b54b4bc6af3b7b34d646ecff253ceefaebb6a97a52060917b66"
+}

@@ -1,5 +1,13 @@
 # 19 — MCNN Learning Rate Tuning (Part A)
 
+> **Historical pilot archive — superseded, not final evidence.** The original
+> narrative and raw logs below are preserved unchanged for provenance. Claims of
+> convergence, significance, equal effects of deviations and causal superiority
+> were not established. Use [the final report](../reports/report.md) and
+> [original evidence](../reports/evidence/README.md) for current results.
+> Final CSRNet is seed 42, epoch 31; final MCNN is the completed validation-only
+> grid with three-seed confirmation. Pilot values must not be pooled with it.
+
 Findings from the first real training run on Colab (T4 GPU), used to justify the
 lr choice in the final comparison. This is the "negative result" row of the
 results table, plus the rationale for the corrected run.

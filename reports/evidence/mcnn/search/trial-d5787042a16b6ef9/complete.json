@@ -1,0 +1,10 @@
+{
+  "config_hash": "843bb97a7366ff68952ba633bc084f1be93b1cce6eacd708d8dfd24211e98f43",
+  "files": {
+    "config.json": "128dc710b530ddecc7d58ab36f795535f3ae60f6d89a4cb6b1a66aca1dd6708d",
+    "history.json": "13e2e9b518df7f97c66a89d0627b826990ce6792dae8106b96da3eb57aa0cab4",
+    "last.pth": "a2246d47b65f7a4731abacaee78e6909aa8d51f47f4ff0da39998afcf0fd1dbb",
+    "mcnn_partA_seed42_best.pth": "fb056b93cf8053ab0b84e7e5d97dc00620e101e6e6b0db40a419b85269e773d9",
+    "summary.json": "ec904443a48786d37b29a2c861ce1e9446d58591780a778f7bd259f55e000e23"
+  }
+}

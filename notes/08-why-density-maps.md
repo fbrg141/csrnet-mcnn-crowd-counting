@@ -2,6 +2,13 @@
 
 Why go through the trouble of generating density maps instead of just counting dots directly? This note traces the reasoning.
 
+**Scope correction:** the sketches below simplify the motivation. Delta targets
+are not mathematically impossible to learn and do not eliminate MSE gradients:
+the output gradient is proportional to prediction minus target, including where
+the target is zero. Gaussian targets provide smoother spatial supervision.
+Direct count regression and detection are alternatives, not impossible methods.
+Illustrative arrays below are diagrams, not numerically normalized worked examples.
+
 ---
 
 ## 8.1 The Naive Approach: Count the Dots

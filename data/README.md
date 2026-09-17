@@ -52,8 +52,14 @@ Dataset ne ide u git (ignorisan u `.gitignore`). U repozitorijumu se čuvaju
 ovaj README i `.gitkeep` fajlovi koji zadržavaju prazne `raw/` i `processed/`
 direktorijume.
 
-## Sledeći koraci
-- [ ] preuzeti ShanghaiTech dataset
-- [ ] proveriti .mat anotacije (head annotations)
-- [ ] napisati skriptu za generisanje density mapa
-- [ ] napraviti train/val/test split
+## Status i oprez
+
+Pipeline, pregled anotacija i split su završeni; važeći status je u
+[PLAN.md](../PLAN.md). Finalni eksperimenti su samo Part A: 270/30 trening/validacija
+iz zvaničnih 300 trening slika i 182 test slike. Pregled Part B podataka u
+notebook-u nije dokaz završenog treninga na Part B.
+
+`download_data.py` zamenjuje postojeći `data/raw/ShanghaiTech/`; ne pokretati ga
+nad jedinom kopijom lokalno izmenjenih podataka. `precompute_density_maps.py --force`
+briše ceo izabrani direktorijum keša, ne samo izabrane modele/splitove. Za rutinski
+rad koristiti postojeće neizmenjene podatke i v2 keš bez `--force`.

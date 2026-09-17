@@ -59,7 +59,10 @@ class CrowdCountingDataset(Dataset):
 ```python
 from torch.utils.data import DataLoader
 
-dataset = CrowdCountingDataset(root="data/raw/ShanghaiTech", part="A", split="train")
+dataset = CrowdCountingDataset.from_config(
+    root="data/raw/ShanghaiTech", part="A", split="train",
+    downsample_factor=8, normalize=True,
+)  # CSRNet-sized targets and uniform input size
 loader = DataLoader(dataset, batch_size=4, shuffle=True, num_workers=4)
 
 for images, densities in loader:
@@ -67,6 +70,7 @@ for images, densities in loader:
     # densities: (4, 1, 96, 128)    — batch of density maps
     predictions = model(images)
     loss = loss_fn(predictions, densities)
+    optimizer.zero_grad()
     loss.backward()
     optimizer.step()
 ```

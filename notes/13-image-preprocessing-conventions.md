@@ -246,9 +246,10 @@ points[:, 1] *= scale_y
 ```python
 # WRONG: integer division
 arr = np.array(image)  # uint8
-result = arr / 255     # integer division! 200/255 = 0 (not 0.784)
+result = arr // 255    # floor division discards fractional values
 
-# CORRECT: convert to float first
+# NumPy arr / 255 already performs true division (typically float64).
+# Use float32 explicitly for the model input:
 result = arr.astype(np.float32) / 255.0  # 200/255 = 0.784
 # or use torch:
 result = torch.from_numpy(arr).float() / 255.0

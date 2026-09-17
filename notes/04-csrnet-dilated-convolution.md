@@ -2,7 +2,7 @@
 
 **Paper:** *CSRNet: Dilated Convolutional Neural Networks for Understanding the Highly Congested Scenes* (Li et al., CVPR 2018)
 
-**The problem CSRNet solves:** MCNN loses resolution through pooling and can't use pretrained features. CSRNet keeps full resolution via dilated convolutions and leverages a pretrained VGG16 backbone.
+**The problem CSRNet solves:** MCNN loses resolution through pooling and can't use pretrained features. CSRNet keeps the frontend output resolution (input stride 8) through its dilated backend and leverages a pretrained VGG16 backbone.
 
 ---
 
@@ -20,17 +20,17 @@ X X X                     X . X . X                 . . . . . . . . .
                                                    . . . . . . . . .
                                                    X . . . X . . . X
 
-Receptive field: 3×3      Receptive field: 7×7      Receptive field: 15×15
+Receptive field: 3×3      Receptive field: 5×5      Receptive field: 9×9
 Parameters: 9             Parameters: 9              Parameters: 9
 ```
 
-**Key property:** the receptive field grows quadratically with dilation rate, but the number of parameters stays the same (9 weights for a 3×3 kernel).
+**Key property:** effective kernel side length is `1 + (k−1) × dilation`: for k=3, rates 1/2/4 span 3/5/9 pixels. The enclosing area grows quadratically, but only 9 positions are sampled per input/output channel pair. This is not dense coverage of that area.
 
 ### Why this matters for crowd counting
 
 | Normal conv | Dilated conv |
 |---|---|
-| To cover a 15×15 area: use a 15×15 kernel (225 params) or stack 7× 3×3 convs | Use one 3×3 conv with rate=4 (9 params) |
+| To cover a 9×9 area: use a 9×9 kernel (81 weights) or stack 4× 3×3 convs | Use one 3×3 conv with rate=4 (9 weights, sparse sampling) |
 | Each pooling layer halves resolution | No pooling needed — resolution stays the same |
 | Deep networks need many layers to see the whole image | A few dilated layers can see the whole image |
 
@@ -169,10 +169,12 @@ complete behavior of the repository's current generic training entrypoint.
 the dilated backend and output layer start from newly initialized weights. All
 layers remain trainable.
 
-The current `src/train.py` uses one SGD parameter group and the single CSRNet
-learning rate from `MODEL_CONFIGS`; it does not yet apply separate frontend and
-backend learning rates or weight decay. Those paper-aligned optimizer details
-are intentionally deferred to the CSRNet training-integration task.
+The current `src/train.py` supports `--weight-decay`, but the completed CSRNet
+experiment uses zero decay, momentum .95 and one SGD parameter group at lr=1e-5.
+Separate frontend/backend learning rates are not implemented. The table above is
+a historical study-note recipe, not a verified exact reproduction of the paper
+or the completed run. See [the final report](../reports/report.md) for the actual
+50-epoch seed-42 protocol and evidence; further optimizer variants are optional.
 
 ---
 

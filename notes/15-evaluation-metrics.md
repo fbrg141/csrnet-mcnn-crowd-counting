@@ -1,6 +1,10 @@
 # 15 — Evaluation Metrics (MAE and RMSE)
 
-This note documents `src/utils/metrics.py` — the two functions used to evaluate crowd counting models. Both operate on **counts** (one scalar per image), not on density maps directly.
+This note documents the standalone `src/utils/metrics.py` helpers. Current training
+and evaluation instead share `src.train.evaluate`, which computes the same count
+metrics using NumPy and rejects empty/non-finite evaluation. Both operate on
+**counts**, not pixel losses. RMSE is not training-seed stability: that is reported
+separately using sample SD. Literature tables below are not project results.
 
 ---
 

@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import argparse
 import math
+import json
+import time
 import random
 import tempfile
 from pathlib import Path
@@ -34,6 +36,9 @@ from src.config import (
 )
 from src.datasets.dataset import CrowdCountingDataset
 from src.models import build_model
+from src.config import CACHE_VERSION, DEFAULT_IMAGE_SIZE
+from src.runs import (atomic_checkpoint, atomic_json, completed, digest, file_hash,
+                      mark_complete, source_hash, validate_hparams)
 
 
 # --------------------------------------------------------------------------------------
@@ -154,6 +159,8 @@ def train_one_epoch(
         optimizer.zero_grad()
         pred = model(images)
         loss = criterion(pred, density)
+        if not torch.isfinite(loss):
+            raise ValueError('non-finite training loss; trial stopped')
         loss.backward()
         optimizer.step()
 
@@ -164,7 +171,9 @@ def train_one_epoch(
             gt_counts = density_to_count(density).cpu()
             errs.extend((pred_counts - gt_counts).tolist())
 
-    n = len(loader.dataset)
+    n = len(errs)
+    if not n:
+        raise ValueError('empty training loader (check dataset and batch size)')
     avg_loss = total_loss / n
     mae = float(np.mean(np.abs(errs)))
     rmse = float(math.sqrt(np.mean(np.square(errs))))
@@ -187,6 +196,8 @@ def evaluate(
         pred_counts = density_to_count(pred).cpu()
         gt_counts = density_to_count(density).cpu()
         errs.extend((pred_counts - gt_counts).tolist())
+    if not errs or not np.isfinite(errs).all():
+        raise ValueError('empty evaluation loader or non-finite predictions')
     mae = float(np.mean(np.abs(errs)))
     rmse = float(math.sqrt(np.mean(np.square(errs))))
     return mae, rmse
@@ -203,6 +214,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument("--lr", type=float, default=None,
                         help="override lr from MODEL_CONFIGS")
+    parser.add_argument('--momentum', type=float, default=None)
+    parser.add_argument('--weight-decay', type=float, default=0.0)
+    parser.add_argument('--resume', action='store_true', help='resume last epoch or verify/skip a completed run')
+    parser.add_argument('--device', choices=['auto', 'cpu', 'cuda'], default='auto')
     parser.add_argument("--seed", type=int, default=42,
                         help="random seed (default: 42)")
     parser.add_argument("--num-workers", type=int, default=0)
@@ -216,71 +231,123 @@ def main(argv: list[str] | None = None) -> None:
                         help="1-epoch smoke test on a tiny fake dataset")
     args = parser.parse_args(argv)
 
-    set_seed(args.seed)
-    device = get_device()
-    print(f"[device] {device}")
-
+    if args.epochs < 1 or args.batch_size < 1 or args.num_workers < 0 or not 0 <= args.seed < 2**32:
+        parser.error('positive epochs/batch size, nonnegative workers and uint32 seed required')
     cfg = MODEL_CONFIGS[args.model]
-    lr = args.lr if args.lr is not None else cfg["lr"]
-    print(f"[config] model={args.model} part={args.part} "
-          f"downsample={cfg['downsample_factor']} normalize={cfg['normalize']} "
-          f"lr={lr} momentum={cfg['momentum']} seed={args.seed}")
-
-    # --- smoke mode: build a throwaway fake dataset so we can run without the
-    # real download. Exercises the entire loop end-to-end. Cache is forced off
-    # so fake 'IMG_*' stems never pollute the real on-disk cache.
-    use_cache = not args.no_cache
-    if args.smoke:
-        root = _make_fake_dataset(tempfile.mkdtemp(), part=args.part, n=8)
-        args.root = root
-        args.epochs = 1
-        use_cache = False
-
-    model = build_model(args.model).to(device)
-    n_params = sum(p.numel() for p in model.parameters())
-    print(f"[model] {args.model} params={n_params}")
-
-    train_loader, val_loader = build_dataloaders(
-        args.model, args.part, args.root,
-        batch_size=args.batch_size, num_workers=args.num_workers,
-        use_cache=use_cache, cache_dir=args.cache_dir,
-    )
-    print(f"[data] train={len(train_loader.dataset)} val={len(val_loader.dataset)}")
-
-    criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.SGD(
-        model.parameters(), lr=lr, momentum=cfg["momentum"],
-    )
-
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    ckpt_path = out_dir / (
-        f"{experiment_stem(args.model, args.part, args.seed, smoke=args.smoke)}_best.pth"
-    )
-
-    best_val_mae = math.inf
-    for epoch in range(1, args.epochs + 1):
-        train_loss, train_mae, train_rmse = train_one_epoch(
-            model, train_loader, optimizer, criterion, device,
+    lr = args.lr if args.lr is not None else cfg['lr']
+    momentum = args.momentum if args.momentum is not None else cfg['momentum']
+    validate_hparams(lr, momentum, args.weight_decay)
+    set_seed(args.seed)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+    device = get_device() if args.device == 'auto' else torch.device(args.device)
+    print(f'[device] {device}')
+    use_cache = not args.no_cache and not args.smoke
+    # TemporaryDirectory cleans smoke inputs even when a run fails.
+    with tempfile.TemporaryDirectory() as temporary:
+        if args.smoke:
+            args.root = _make_fake_dataset(temporary, part=args.part, n=8)
+            args.epochs = 1
+        train_loader, val_loader = build_dataloaders(
+            args.model, args.part, args.root, args.batch_size, args.num_workers,
+            use_cache=use_cache, cache_dir=args.cache_dir,
         )
-        val_mae, val_rmse = evaluate(model, val_loader, device)
-        print(
-            f"[epoch {epoch:3d}] "
-            f"loss={train_loss:.6f} train_mae={train_mae:.2f} train_rmse={train_rmse:.2f} "
-            f"| val_mae={val_mae:.2f} val_rmse={val_rmse:.2f}"
-        )
-
-        if val_mae < best_val_mae:
-            best_val_mae = val_mae
-            torch.save(
-                {"epoch": epoch, "model": args.model, "part": args.part,
-                 "state_dict": model.state_dict(),
-                 "seed": args.seed, "val_mae": val_mae, "val_rmse": val_rmse},
-                ckpt_path,
-            )
-            print(f"  -> saved {ckpt_path.name} (val_mae={val_mae:.2f})")
-
-    print(f"[done] best val_mae={best_val_mae:.2f} -> {ckpt_path}")
+        if args.smoke:
+            for loader in (train_loader, val_loader):
+                loader.dataset.target_size = (64, 64)
+        if not len(train_loader) or not len(val_loader):
+            raise ValueError('empty train/validation loader; check dataset and batch size')
+        data = {}
+        for split, loader in [('train', train_loader), ('val', val_loader)]:
+            data[split] = [(p.name, file_hash(p)) for p in
+                           loader.dataset.images + loader.dataset.gts]
+        config = {
+            'model': args.model, 'part': args.part, 'seed': args.seed,
+            'epochs': args.epochs, 'batch_size': args.batch_size,
+            'lr': lr, 'momentum': momentum, 'weight_decay': args.weight_decay,
+            'num_workers': args.num_workers, 'smoke': args.smoke,
+            'root': 'synthetic-v1' if args.smoke else str(Path(args.root).resolve()),
+            'dataset_hash': digest('synthetic-v1') if args.smoke else digest(data), 'source_hash': source_hash(),
+            'cache_version': CACHE_VERSION, 'use_cache': use_cache,
+            'image_size': list(train_loader.dataset.target_size),
+            'density_mode': train_loader.dataset.density_mode,
+            'sigma': train_loader.dataset.sigma, 'k': train_loader.dataset.k,
+            'beta': train_loader.dataset.beta,
+            'val_split': VAL_SPLIT, 'split_policy': 'lexicographic-tail',
+            'downsample_factor': cfg['downsample_factor'], 'normalize': cfg['normalize'],
+            'optimizer': 'SGD', 'loss': 'pixel_mean_MSE', 'drop_last': True,
+            'device': str(device), 'torch_version': str(torch.__version__),
+            'n_train': len(train_loader.dataset), 'n_val': len(val_loader.dataset),
+        }
+        out_dir = Path(args.out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        config_path = out_dir / 'config.json'
+        if config_path.exists():
+            if json.loads(config_path.read_text()) != config:
+                raise ValueError('run configuration changed; use a new output directory')
+            if not args.resume:
+                raise ValueError('run exists; use --resume or a new output directory')
+        elif any(out_dir.glob('*.pth')):
+            raise ValueError('legacy checkpoints in output directory; use a new directory')
+        if completed(out_dir, config):
+            print('[skip] verified completed run')
+            return
+        atomic_json(config_path, config)
+        ckpt_path = out_dir / f"{experiment_stem(args.model, args.part, args.seed, smoke=args.smoke)}_best.pth"
+        last_path = out_dir / 'last.pth'
+        model = build_model(args.model, pretrained=not args.smoke and not last_path.exists()).to(device)
+        optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=momentum,
+                                    weight_decay=args.weight_decay)
+        history = []
+        best = None
+        elapsed = 0.0
+        if args.resume and last_path.exists():
+            last = torch.load(last_path, map_location='cpu', weights_only=False)
+            if last['config'] != config:
+                raise ValueError('resume checkpoint configuration mismatch')
+            model.load_state_dict(last['state_dict'])
+            optimizer.load_state_dict(last['optimizer'])
+            history, best, elapsed = last['history'], last['best'], last['elapsed_seconds']
+            random.setstate(last['rng']['python'])
+            np.random.set_state(last['rng']['numpy'])
+            torch.set_rng_state(last['rng']['torch'])
+            if last['rng']['cuda'] is not None:
+                torch.cuda.set_rng_state_all(last['rng']['cuda'])
+            # Recover the best checkpoint if a disconnect lost that separate write.
+            atomic_checkpoint(ckpt_path, best)
+            print(f"[resume] epoch {len(history) + 1}")
+        start = time.perf_counter()
+        for epoch in range(len(history) + 1, args.epochs + 1):
+            train_loss, train_mae, train_rmse = train_one_epoch(
+                model, train_loader, optimizer, torch.nn.MSELoss(), device)
+            val_mae, val_rmse = evaluate(model, val_loader, device)
+            row = dict(epoch=epoch, train_loss=train_loss, train_mae=train_mae,
+                       train_rmse=train_rmse, val_mae=val_mae, val_rmse=val_rmse)
+            if not all(math.isfinite(v) for v in row.values()):
+                raise ValueError('non-finite epoch metrics; trial stopped')
+            history.append(row)
+            print(f'[epoch {epoch}] {row}', flush=True)
+            if best is None or val_mae < best['val_mae']:
+                best = dict(epoch=epoch, model=args.model, part=args.part, seed=args.seed,
+                            val_mae=val_mae, val_rmse=val_rmse, config=config,
+                            state_dict={k: v.detach().cpu().clone() for k, v in model.state_dict().items()})
+                atomic_checkpoint(ckpt_path, best)
+            atomic_checkpoint(last_path, {
+                'config': config, 'epoch': epoch, 'state_dict': model.state_dict(),
+                'optimizer': optimizer.state_dict(), 'history': history, 'best': best,
+                'elapsed_seconds': elapsed + time.perf_counter() - start,
+                'rng': {'python': random.getstate(), 'numpy': np.random.get_state(),
+                        'torch': torch.get_rng_state(),
+                        'cuda': torch.cuda.get_rng_state_all() if device.type == 'cuda' else None},
+            })
+            atomic_json(out_dir / 'history.json', history)
+        atomic_json(out_dir / 'history.json', history)
+        summary = dict(config=config, checkpoint=ckpt_path.name, best_epoch=best['epoch'],
+                       val_mae=best['val_mae'], val_rmse=best['val_rmse'],
+                       epochs_completed=len(history), elapsed_seconds=elapsed + time.perf_counter() - start)
+        atomic_json(out_dir / 'summary.json', summary)
+        mark_complete(out_dir, summary)
+        print(f"[done] best val_mae={best['val_mae']:.4f} -> {ckpt_path}")
 
 
 # --------------------------------------------------------------------------------------

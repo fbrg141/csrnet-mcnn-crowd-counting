@@ -1,0 +1,132 @@
+{
+  "aggregate": {
+    "baseline": {
+      "mae_mean": 1458.7485307546763,
+      "mae_sample_std": 927.4736744786296,
+      "n": 3,
+      "rmse_mean": 1542.6521906434984,
+      "rmse_sample_std": 867.3691802528526,
+      "seeds": [
+        42,
+        123,
+        2026
+      ]
+    },
+    "winner": {
+      "mae_mean": 317.949213048914,
+      "mae_sample_std": 69.46650939471934,
+      "n": 3,
+      "rmse_mean": 435.96582280203194,
+      "rmse_sample_std": 100.29359625675319,
+      "seeds": [
+        42,
+        123,
+        2026
+      ]
+    }
+  },
+  "evaluation_plan": {
+    "runs": [
+      {
+        "checkpoint_hash": "07c10e83d86dc6aad9e48acf2fbcaace60329f6a411768dba3e0b187513fb25e",
+        "directory": "trial-b21607db206f86d4",
+        "label": "baseline",
+        "seed": 42
+      },
+      {
+        "checkpoint_hash": "2e38b72cc36970d35dcf7665e973ee2cdff07bbf80d3c0629ee227d7ef2eec95",
+        "directory": "confirmation/trial-b21607db206f86d4-seed123",
+        "label": "baseline",
+        "seed": 123
+      },
+      {
+        "checkpoint_hash": "76b3cbc0b331a01bdf9a3e64b07b81fff6e8e0e9aba8561b0eccf2a4762b0b22",
+        "directory": "confirmation/trial-b21607db206f86d4-seed2026",
+        "label": "baseline",
+        "seed": 2026
+      },
+      {
+        "checkpoint_hash": "045d094e9b1bb9ccededa3bf8c708a1049e1f28f5b898b7e8ea5c820d5227fe4",
+        "directory": "trial-6ad69cb6b9f3e63e",
+        "label": "winner",
+        "seed": 42
+      },
+      {
+        "checkpoint_hash": "e4d42471048860b8176f6c5684ca8d5cb5acc07bd198302c181d0ca359b48f14",
+        "directory": "confirmation/trial-6ad69cb6b9f3e63e-seed123",
+        "label": "winner",
+        "seed": 123
+      },
+      {
+        "checkpoint_hash": "14f4d0189356ede297b0cdba458aa239ec4771b3a98ff3f128e92e2404d1b73b",
+        "directory": "confirmation/trial-6ad69cb6b9f3e63e-seed2026",
+        "label": "winner",
+        "seed": 2026
+      }
+    ],
+    "selection_hash": "7eecf15919d4794c29e369b0dea9809d6fd502435e92b01ce90911341da0dd57"
+  },
+  "runs": [
+    {
+      "checkpoint_hash": "07c10e83d86dc6aad9e48acf2fbcaace60329f6a411768dba3e0b187513fb25e",
+      "label": "baseline",
+      "mae": 2509.338435246394,
+      "n_test": 182,
+      "rmse": 2531.838921491027,
+      "seed": 42,
+      "synthetic": false,
+      "trial_id": "trial-b21607db206f86d4"
+    },
+    {
+      "checkpoint_hash": "2e38b72cc36970d35dcf7665e973ee2cdff07bbf80d3c0629ee227d7ef2eec95",
+      "label": "baseline",
+      "mae": 1113.4620679918226,
+      "n_test": 182,
+      "rmse": 1183.9319406211616,
+      "seed": 123,
+      "synthetic": false,
+      "trial_id": "trial-b21607db206f86d4"
+    },
+    {
+      "checkpoint_hash": "76b3cbc0b331a01bdf9a3e64b07b81fff6e8e0e9aba8561b0eccf2a4762b0b22",
+      "label": "baseline",
+      "mae": 753.4450890258119,
+      "n_test": 182,
+      "rmse": 912.1857098183063,
+      "seed": 2026,
+      "synthetic": false,
+      "trial_id": "trial-b21607db206f86d4"
+    },
+    {
+      "checkpoint_hash": "045d094e9b1bb9ccededa3bf8c708a1049e1f28f5b898b7e8ea5c820d5227fe4",
+      "label": "winner",
+      "mae": 316.3082919277988,
+      "n_test": 182,
+      "rmse": 431.98797174960714,
+      "seed": 42,
+      "synthetic": false,
+      "trial_id": "trial-6ad69cb6b9f3e63e"
+    },
+    {
+      "checkpoint_hash": "e4d42471048860b8176f6c5684ca8d5cb5acc07bd198302c181d0ca359b48f14",
+      "label": "winner",
+      "mae": 249.31770127684206,
+      "n_test": 182,
+      "rmse": 337.72033320117254,
+      "seed": 123,
+      "synthetic": false,
+      "trial_id": "trial-6ad69cb6b9f3e63e"
+    },
+    {
+      "checkpoint_hash": "14f4d0189356ede297b0cdba458aa239ec4771b3a98ff3f128e92e2404d1b73b",
+      "label": "winner",
+      "mae": 388.22164594210113,
+      "n_test": 182,
+      "rmse": 538.1891634553161,
+      "seed": 2026,
+      "synthetic": false,
+      "trial_id": "trial-6ad69cb6b9f3e63e"
+    }
+  ],
+  "synthetic": false
+}

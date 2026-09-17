@@ -240,10 +240,15 @@ CSRNet uses a pretrained VGG16 frontend that expects inputs normalized with Imag
 
 | Limitation | Issue | Impact |
 |---|---|---|
-| No density map caching | #12 | Adaptive mode regenerates ~500ms per image every epoch |
-| No data augmentation | #14 | Only 300 images → overfitting risk |
-| Config not wired to dataset | #13 | Config values exist but dataset doesn't use them automatically |
-| Single-head edge case | #10 | Adaptive sigma crashes on 1 head (doesn't occur in ShanghaiTech) |
-| `Image.BILINEAR` deprecated | #11 | Works now, will break in future Pillow versions |
+| Density caching | #12 / #15 | Implemented; train/evaluate enable it, cache v2 separates corrected maps |
+| No data augmentation | #14 | Still absent; final Part A uses 270 training images |
+| Config wiring | #13 | Implemented by `CrowdCountingDataset.from_config` |
+| Single-head edge case | #10 | Fixed using fallback sigma; covered by tests |
+| Pillow resampling | #11 | Uses `Image.Resampling.BILINEAR` |
 
-These are tracked as GitHub issues and don't block training — the pipeline produces correctly-shaped tensors.
+The walkthrough omits the implemented cache fast path for clarity. Fixed-map
+coincident annotations accumulate with `+= 1.0`; cache v2 invalidates older maps.
+Use dedicated cache roots for different datasets: filenames do not bind dataset
+content. Adaptive Gaussians remain truncated near borders; neither mode guarantees
+exact annotation count for invalid/out-of-bounds points. The final experiment uses
+fixed sigma, not adaptive maps. Current experiment status: [PLAN.md](../PLAN.md).

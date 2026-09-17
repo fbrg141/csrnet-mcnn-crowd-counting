@@ -1,270 +1,184 @@
 \documentclass[aspectratio=169]{beamer}
-
-% Serbian Latin characters support
-% Compiled with Tectonic (XeTeX engine): use fontspec for full Unicode (š, č, ć, ž, đ).
-% Do NOT load inputenc/fontenc/lmodern - those are pdfTeX-era and drop diacritics.
+% Unicode Serbian Latin; build with XeLaTeX (also compatible with Tectonic).
 \usepackage{fontspec}
-
-% Graphics and tables
-\usepackage{graphicx}
-\usepackage{booktabs}
-\usepackage{amsmath}
-
-% Theme - clean and professional
+\usepackage{graphicx,booktabs,amsmath}
 \usetheme{Madrid}
-\usecolortheme{default}
-
-% Serbian language settings
-\renewcommand{\figurename}{Slika}
-\renewcommand{\tablename}{Tabela}
-
-% Custom footline with slide numbers
+\setbeamertemplate{blocks}[rounded][shadow=false]
+\setbeamertemplate{title page}[default][rounded=false,shadow=false]
 \setbeamertemplate{footline}[frame number]
 \setbeamertemplate{navigation symbols}{}
-
 \title[Poređenje MCNN i CSRNet modela]{Poređenje MCNN i CSRNet modela\\za brojanje ljudi u gužvi}
 \author[Dimitrijević, Kutlešić]{Uroš Dimitrijević \and Miloš Kutlešić}
 \institute[FTN]{Projektni rad iz predmeta Mašinsko učenje}
 \date{}
-
 \begin{document}
+\begin{frame}\titlepage\end{frame}
 
-% Slide 1: Title
-\begin{frame}
-    \titlepage
+\begin{frame}{Problem i istraživačko pitanje}
+\begin{itemize}
+\item Okluzija i male glave otežavaju detekciju pojedinačnih osoba u gustim scenama.
+\item Regresija mape gustine: broj ljudi je suma predviđene mape.
+\item Poredimo MCNN i CSRNet na ShanghaiTech Part A u budžetu od 50 epoha.
+\item Pitanje: koja \emph{konfiguracija} daje manju grešku, i koliko MCNN zavisi od podešavanja i seed-a?
+\end{itemize}
+\begin{block}{Obuhvat dokaza}Završena MCNN pretraga i potvrde; završen CSRNet samo za seed 42. Nema rezultata za Part B.\end{block}
 \end{frame}
 
-% Slide 2: Introduction
-\begin{frame}{Uvod i motivacija}
-    \begin{itemize}
-        \item \textbf{Problem}: Automatsko brojanje ljudi na slikama gustih gužvi
-        \item \textbf{Zašto ne detekcija objekata?}
-        \begin{itemize}
-            \item Jaka okluzija (prekrivanje) u gustim scenama
-            \item Mali objekti, teško razlikovanje pojedinaca
-            \item Previše instanci za bounding box pristup (npr. YOLO)
-            \item Segnmentacija instanci takođe nepovoljna: ljudi se u gužvi \emph{spajaju} u jednu regiju, maska po osobi je preskupa za anotiranje --- dataset daje samo tačke (glave)
-        \end{itemize}
-        \item \textbf{Rešenje}: Regresija mape gustine (density map)
-        \begin{itemize}
-            \item Model uči "koliko je gusta svaka oblast", ne "gde je svaka osoba"
-            \item Ukupan broj = integral (suma) mape gustine
-        \end{itemize}
-    \end{itemize}
+\begin{frame}{Mapa gustine i brojanje}
+\begin{columns}
+\column{.51\textwidth}
+\[D(x)=\sum_{i=1}^{N}G_{\sigma}(x-x_i),\qquad \hat N=\sum_x\hat D(x)\]
+\begin{itemize}
+\item Anotacije su tačke položaja glava.
+\item Fiksna $\sigma=15$; ispravljena akumulacija, keš v2.
+\item Ciljna mapa čuva masu pri promeni rezolucije.
+\item Adaptivni režim nije korišćen.
+\end{itemize}
+\column{.46\textwidth}
+\includegraphics[width=\textwidth]{../reports/figures/density_map_illustration.png}
+\par\scriptsize Ilustracija postupka, ne kvalitativni rezultat finalnih modela.
+\end{columns}
 \end{frame}
 
-% Slide 3: Theory - Density Maps
-\begin{frame}{Teorijska osnova: Mape gustine}
-    \begin{columns}[T]
-        \column{0.55\textwidth}
-        \begin{itemize}
-            \item Svaka anotacija (glava) se modeluje Gausovim kernelom:
-            \[
-                \begin{aligned}
-                    F(x) &= \sum_{i=1}^{N} \delta(x-x_i) * G_{\sigma_i}(x) \\
-                    G_{\sigma}(x) &= \frac{1}{2\pi\sigma^{2}}\, e^{-\|x\|^{2}/(2\sigma^{2})}
-                \end{aligned}
-            \]
-            \item \textbf{Broj osoba} = $\sum$ vrednosti piksela mape gustine
-            \item Fiksna $\sigma=15$ (kontrolisano poređenje) vs. adaptivna (u daljem radu)
-            \item Prednost: uči distribuciju gužve, robustno na okluzije
-        \end{itemize}
-        
-        \column{0.42\textwidth}
-        \begin{center}
-            \includegraphics[width=\textwidth]{figures/density_map_illustration.png}\\[0.2em]
-            {\scriptsize Slika $\rightarrow$ anotacije $\rightarrow$ mapa gustine}\\[0.4em]
-            {\small Diskretni Gausov kernel:}\\[0.2em]
-            $\dfrac{1}{273}\begin{bmatrix}
-                1 & 4 & 7 & 4 & 1\\
-                4 & 16 & 26 & 16 & 4\\
-                7 & 26 & 41 & 26 & 7\\
-                4 & 16 & 26 & 16 & 4\\
-                1 & 4 & 7 & 4 & 1
-            \end{bmatrix}$\\[0.4em]
-            {\scriptsize težine oko tačke glave, $\sigma \approx 1.05$; zbir težina $= \frac{273}{273} = 1$ --- svaka glava doda tačno 1 osobu}
-        \end{center}
-    \end{columns}
+\begin{frame}{Arhitekture: šta se zaista poredi?}
+\small
+\begin{tabular}{@{}p{3.1cm}p{4.4cm}p{4.5cm}@{}}
+\toprule & MCNN [1] & CSRNet-B [2]\\\midrule
+Princip & Tri grane, po dve konvolucije (lokalna varijanta) & VGG16 frontend + šest dilatiranih konvolucija\\
+Inicijalizacija & Od nule & ImageNet frontend, novi backend\\
+Parametri & 64,385 & 16,263,489\\
+Izlazni korak & 4 & 8\\
+Ulaz & RGB u [0,1] & ImageNet normalizacija\\\bottomrule
+\end{tabular}
+\vspace{.5cm}
+\begin{itemize}
+\item Kernel $3\times3$, dilatacija 2: efektivno polje $5\times5$.
+\item Isti podaci i epohe ne izoluju arhitekturu od pretreniranja, kapaciteta, normalizacije i izlazne rezolucije.
+\end{itemize}
 \end{frame}
 
-% Slide 4a: Architecture - MCNN
-\begin{frame}{Arhitektura: MCNN (Zhang et al., 2016)}
-    \begin{columns}[T]
-        \column{0.54\textwidth}
-        \begin{itemize}
-            \item \textbf{Problem skale}: bliske glave $\sim$30$\times$30 px, daleke $\sim$5$\times$5 px --- jedan filter ne pokriva obe
-            \item \textbf{Rešenje}: tri paralelne grane, svaka specijalizovana za jednu skalu
-            \item \textbf{Fuzija}: konkatenacija kanala + 1$\times$1 konv. uči gde da veruje kojoj grani (gusta gužva $\rightarrow$ sitni filteri)
-            \item Učenje od nule (from scratch), bez pretreniranog backbone-a
-            \item \textbf{Slabosti}: gubitak rezolucije kroz pooling ($\frac{H}{4}$); nema transfera znanja
-        \end{itemize}
-        
-        \column{0.42\textwidth}
-        \begin{center}
-            \small
-            \begin{tabular}{@{}lll@{}}
-                \toprule
-                \textbf{Grana} & \textbf{Filteri} & \textbf{Kanali} \\
-                \midrule
-                Velika (bliske) & 9$\times$9, 7$\times$7 & 16 $\rightarrow$ 32 \\
-                Srednja & 7$\times$7, 5$\times$5 & 20 $\rightarrow$ 40 \\
-                Mala (daleke) & 5$\times$5, 3$\times$3 & 24 $\rightarrow$ 48 \\
-                \bottomrule
-            \end{tabular}
-            \\ [0.4em]
-            \scriptsize
-            Svaka grana: conv $\rightarrow$ pool(2$\times$2) $\rightarrow$ conv $\rightarrow$ pool(2$\times$2)\\ [0.2em]
-            Konkat. (120 kanala) $\rightarrow$ 1$\times$1 $\Rightarrow$ mapa gustine $\frac{H}{4}\times\frac{W}{4}$\\ [0.2em]
-            \textbf{64K parametara}
-        \end{center}
-    \end{columns}
+\begin{frame}{Podaci i zajednički protokol}
+\begin{itemize}
+\item Part A: 300 zvaničnih trening slika i 182 test slike.
+\item Trening/validacija: 270/30, poslednjih 10\% \textbf{leksikografski sortiranih} naziva; nije nasumičan uzorak.
+\item Ulaz $768\times1024$; 50 epoha, batch 4, SGD, srednji pikselni MSE; trening odbacuje poslednji nepotpun batch.
+\item Bez augmentacije, rasporeda stope učenja i ranog zaustavljanja.
+\item Checkpoint: najmanji validacioni MAE, ne poslednja epoha po automatizmu.
+\end{itemize}
+\small MAE $=\frac1n\sum_i|e_i|$; RMSE $=\sqrt{\frac1n\sum_i e_i^2}$.\\
+RMSE jače kažnjava velike greške; nije varijabilnost između seed-ova.
 \end{frame}
 
-% Slide 4b: Architecture - CSRNet
-\begin{frame}{Arhitektura: CSRNet (Li et al., 2018)}
-    \begin{columns}[T]
-        \column{0.54\textwidth}
-        \begin{itemize}
-            \item \textbf{Dilated konvolucija}: 3$\times$3 kernel sa ``rupama'' $\Rightarrow$ receptivno polje 7$\times$7, i dalje samo 9 parametara (dilation=2)
-            \item Bez poolinga u backendu $\Rightarrow$ rezolucija se ne gubi dalje
-            \item \textbf{Frontend}: VGG16 pretreniran na ImageNet --- transfer znanja iz opštih vizuelnih reprezentacija
-            \item \textbf{Backend}: 6 dilated konv. trenirano od nule
-            \item 16M parametara $\Rightarrow$ veliki kapacitet, ali rizik overfitting-a na 300 slika
-        \end{itemize}
-        
-        \column{0.42\textwidth}
-        \begin{center}
-            \small
-            \begin{tabular}{@{}lp{3.6cm}@{}}
-                \toprule
-                \textbf{Deo} & \textbf{Detalj} \\
-                \midrule
-                Frontend & VGG16 do conv4\_3 \\
-                 & ImageNet, 3 poolinga $\Rightarrow$ $\frac{H}{8}$ \\
-                Backend & 6$\times$ Conv 3$\times$3, dilat.~2 \\
-                 & 512$\rightarrow$256$\rightarrow$128$\rightarrow$64 \\
-                Izlaz & Conv 1$\times$1 $\Rightarrow$ mapa gustine \\
-                \bottomrule
-            \end{tabular}
-            \\ [0.4em]
-            \scriptsize
-            Rezolucija pada samo 8$\times$ (3 poolinga), umesto 32$\times$ kod punog VGG16\\ [0.2em]
-            \textbf{16M parametara}
-        \end{center}
-    \end{columns}
-    
-    \vspace{0.25cm}
-    \textbf{Hipoteza}: Duboka dilated arhitektura (CSRNet) trebala bi da nadmaši multi-column pristup (MCNN) na gustim scenama.
+\begin{frame}{MCNN: validaciona pretraga i potvrda}
+\begin{itemize}
+\item Mreža: lr $\{10^{-6},3\cdot10^{-6},10^{-5}\}$, momentum $\{0.90,0.95\}$, weight decay $\{0,10^{-4}\}$.
+\item Svih 12 konfiguracija: seed 42, po 50 epoha.
+\item Početna: $(10^{-6},0.95,0)$; izabrana: $(10^{-5},0.95,10^{-4})$.
+\item Izbor samo po validacionom MAE; četiri dodatna treninga potvrđuju obe konfiguracije na seed-ovima 123 i 2026.
+\item CSRNet nije podešavan: $(10^{-5},0.95,0)$, samo seed 42.
+\end{itemize}
+\begin{alertblock}{Granica interpretacije}Test nije korišćen za rangiranje ove pretrage, ali pilot test rezultati su ranije viđeni. Test nije globalno netaknut.\end{alertblock}
 \end{frame}
 
-% Slide 5: Methodology
-\begin{frame}{Metodologija eksperimenta}
-    \begin{itemize}
-        \item \textbf{Dataset}: ShanghaiTech Part A
-        \begin{itemize}
-            \item 300 trening slika, 182 test slike
-            \item Do ~3000 ljudi po slici (visoka gustina)
-        \end{itemize}
-        \item \textbf{Trening}:
-        \begin{itemize}
-            \item Optimizator: SGD sa momentumom 0.95
-            \item Loss: MSE (pixel-wise) na mapi gustine
-            \item 50 epoha, batch size 4, seed 42
-            \item Bez augmentacije (kontrolisano poređenje modela)
-        \end{itemize}
-        \item \textbf{Metrike}: MAE (Mean Absolute Error), RMSE (Root Mean Squared Error)
-        \item \textbf{Konvencija}: Broj ljudi = integral mape gustine
-    \end{itemize}
+\begin{frame}{Svih 12 rezultata pretrage}
+\centering\includegraphics[width=.88\textwidth]{../reports/figures/search_results.png}
+\par\small Svi najbolji checkpoint-i su u epohi 50: nije dokazana konvergencija.\\
+Weight decay: 467.0918 naspram 467.1052 bez njega; razlika samo 0.0135 MAE. Nema dokaza statističke značajnosti.
 \end{frame}
 
-% Slide 6: Results - Main Table
-\begin{frame}{Rezultati: Poređenje na test skupu}
-    \begin{table}
-        \centering
-        \begin{tabular}{@{}lcccc@{}}
-            \toprule
-            \textbf{Model} & \textbf{Test MAE} & \textbf{Test RMSE} & \textbf{Parametri} & \textbf{Najbolja epoha} \\
-            \midrule
-            MCNN & 315.23 & 429.16 & 64,385 & 50 \\
-            CSRNet & \textbf{217.13} & \textbf{342.66} & 16,263,489 & 34 \\
-            \bottomrule
-        \end{tabular}
-    \end{table}
-    
-    \vspace{0.5cm}
-    \textbf{Rezultat}: CSRNet je značajno bolji:
-    \begin{itemize}
-        \item MAE ~31\% niži (bolji)
-        \item RMSE ~20\% niži (manja varijansa greške)
-        \item Potvrđena hipoteza o superiornosti dubokih dilated arhitektura
-    \end{itemize}
+\begin{frame}{Glavno poređenje: seed 42, 182 test slike}
+\small\centering
+\begin{tabular}{@{}lrrrr@{}}\toprule
+Konfiguracija & Test MAE & Test RMSE & Epoha & Val. MAE\\\midrule
+MCNN početni & 2509.3384 & 2531.8389 & 50 & 2630.5537\\
+MCNN podešeni & 316.3083 & 431.9880 & 50 & 467.0918\\
+CSRNet & \textbf{233.4080} & \textbf{376.9634} & 31 & 360.9125\\\bottomrule
+\end{tabular}
+\vspace{.5cm}
+\begin{itemize}
+\item CSRNet: 26.21\% niži MAE i 12.74\% niži RMSE od podešenog MCNN-a, za ovaj seed.
+\item Početni MCNN je nedovoljno istreniran u ovom budžetu.
+\item Jedan CSRNet seed ne dokazuje opštu superiornost ili veću stabilnost.
+\end{itemize}
 \end{frame}
 
-% Slide 7: Training Dynamics
-\begin{frame}{Rezultati: Dinamika treniranja}
-    \begin{figure}
-        \centering
-        \includegraphics[width=0.62\textwidth]{figures/training_curves.png}
-        \caption{Krive greške tokom treniranja (train vs validation MAE)}
-    \end{figure}
-    
-    \vspace{-0.3cm}
-    \small
-    \textbf{Analiza}:
-    \begin{itemize}
-        \item CSRNet (pretrained VGG): Brza konvergencija, ali \textbf{overfitting} posle epohe 34 (val MAE raste, train MAE opada)
-        \item MCNN (from scratch): Sporija konvergencija, stabilno do kraja, ali na višem nivou greške
-    \end{itemize}
+\begin{frame}{Test greške: poređenje konfiguracija}
+\centering\includegraphics[width=.96\textwidth]{../reports/figures/test_comparison.png}
+\par\small Sve vrednosti: isti Part A test skup i seed 42. Niže je bolje.\\
+Bez mešanja pojedinačnog CSRNet rezultata sa troseed MCNN prosekom.
 \end{frame}
 
-% Slide 8: Gap Analysis
-\begin{frame}{Analiza: Razlika u odnosu na originalne radove}
-    \begin{table}
-        \centering
-        \begin{tabular}{@{}lcc|cc@{}}
-            \toprule
-            & \multicolumn{2}{c|}{\textbf{Naš rezultat}} & \multicolumn{2}{c}{\textbf{Originalni rezultat}} \\
-            \textbf{Model} & MAE & RMSE & MAE & RMSE \\
-            \midrule
-            MCNN & 315 & 429 & $\sim$110 & $\sim$173 \\
-            CSRNet & 217 & 343 & $\sim$68 & $\sim$106 \\
-            \bottomrule
-        \end{tabular}
-    \end{table}
-    
-    \vspace{0.3cm}
-    \textbf{Razlozi odstupanja} (sistematski, ne utiču na poređenje):
-    \begin{itemize}
-        \item Nema augmentacije podataka (random crops, flips)
-        \item Nema learning rate scheduling
-        \item Fiksna $\sigma$ (umesto adaptivne)
-        \item Manji broj epoha (50 vs. više stotina)
-    \end{itemize}
-    
-    \textbf{Važno}: Relativni odnos je isti kao u literaturi (CSRNet < MCNN).
+\begin{frame}{MCNN: tri seed-a, odvojeno od glavnog poređenja}
+\centering\small
+\begin{tabular}{@{}lrr@{}}\toprule
+Konfiguracija & MAE: prosek $\pm$ SD & RMSE: prosek $\pm$ SD\\\midrule
+Početna & $1458.7485\pm927.4737$ & $1542.6522\pm867.3692$\\
+Podešena & $317.9492\pm69.4665$ & $435.9658\pm100.2936$\\\bottomrule
+\end{tabular}
+\vspace{.4cm}
+\begin{itemize}
+\item Seed-ovi 42, 123 i 2026; uzoračka SD sa imeniocem $n-1$, $n=3$.
+\item Podešeni MCNN ima manju posmatranu varijabilnost.
+\item SD nije interval poverenja; sa tri seed-a ne tvrdimo značajnost.
+\item CSRNet nema troseed procenu; njegova SD nije nula nego nepoznata.
+\end{itemize}
 \end{frame}
 
-% Slide 9: Conclusion
+\begin{frame}{MCNN: pojedinačni seed-ovi i uzoračka SD}
+\centering\includegraphics[width=.96\textwidth]{../reports/figures/seed_variability.png}
+\par\small Narandžaste tačke: pojedinačni seed-ovi. Plavo: prosek $\pm$ uzoračka SD.\\
+Pretraga bira konfiguraciju, ne najbolji test seed.
+\end{frame}
+
+\begin{frame}{Dinamika učenja iz originalnih istorija}
+\centering\includegraphics[width=.96\textwidth]{../reports/figures/training_curves.png}
+\par\small CSRNet: minimum validacionog MAE 360.9125 u epohi 31.\\
+Početni MCNN i svi grid pokušaji imaju minimum na granici budžeta.\\
+Ne koristimo stare ručno prepisane pilot krive kao finalne dokaze.
+\end{frame}
+
+\begin{frame}{Poreklo dokaza i reprodukcija}
+\begin{itemize}
+\item MCNN arhiva: 12 pokušaja + 4 potvrde, 6 test zapisa; provereno 48 hash-eva izveštaja. Nema MCNN težina u arhivi.
+\item CSRNet lokalno: 50 epoha, RTX 4070, CUDA FP32; trening 1583.2287 s. Nije merenje inferencije.
+\item Originalni laki JSON/CSV: \texttt{reports/evidence/}; dataset i težine nisu uključeni.
+\item \texttt{scripts/plot\_training\_curves.py}: provera hash-eva, izvođenje tabela, SD i sva četiri grafikona.
+\item Izveštaj, README i beleške navode isti završeni obuhvat.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Ograničenja i sledeći eksperimenti}
+\begin{itemize}
+\item Mali, nerandomizovan validacioni skup; ranije viđeni pilot test rezultati.
+\item Samo Part A; CSRNet samo seed 42; nema testa značajnosti.
+\item MCNN dodatno podešavan; jednak broj epoha nije jednak ukupan trošak pretrage.
+\item Razlike od literature: fiksne mape, bez augmentacije, ograničen trening. Uticaji nisu izolovani ablacijama i ne moraju biti jednaki za modele.
+\item Sledeće: dodatni CSRNet seed-ovi, Part B, duži trening, augmentacija, adaptivne mape, raspored stope učenja i posebno merenje inferencije.
+\end{itemize}
+\end{frame}
+
 \begin{frame}{Zaključak}
-    \begin{itemize}
-        \item \textbf{CSRNet superiorniji} od MCNN za brojanje u gustim gužvama na ShanghaiTech Part A
-        \item Tradeoff kapaciteta i veličine skupa podataka:
-        \begin{itemize}
-            \item Veliki model (CSRNet, 16M) brže uči ali overfituje na malom datasetu (300 slika)
-            \item Mali model (MCNN, 64K) sporiji ali stabilniji
-        \end{itemize}
-        \item Validnost metodologije: Poređenje pod identičnim uslovima eliminiše uticaj pipeline-a
-        \item \textbf{Budući rad}:
-        \begin{itemize}
-            \item Augmentacija podataka (kritično za CSRNet)
-            \item Adaptivna $\sigma$ za mapu gustine
-            \item Learning rate scheduling i duži trening
-        \end{itemize}
-    \end{itemize}
-    
-    \vspace{0.5cm}
-    \centering
-    Hvala na pažnji!
+\begin{block}{Šta podaci podržavaju?}CSRNet ima niže test greške od podešenog MCNN-a za seed 42 u izvedenom Part A protokolu.\end{block}
+\begin{itemize}
+\item MCNN podešavanje mnogo menja rezultat u budžetu od 50 epoha.
+\item Troseed MCNN analiza prikazuje varijabilnost, a ne samo najbolji rezultat.
+\item Prednost weight decay od 0.0135 MAE je zanemarljiva kao dokaz koristi.
+\item Nema zaključka o opštoj superiornosti, značajnosti ili stabilnosti CSRNet-a bez dodatnih eksperimenata.
+\end{itemize}
+\centering Hvala na pažnji!
 \end{frame}
 
+\begin{frame}{Literatura i prateći materijal}
+\small
+\begin{enumerate}
+\item Zhang, Y. et al. (2016). \emph{Single-Image Crowd Counting via Multi-Column Convolutional Neural Network}. CVPR.
+\item Li, Y., Zhang, X., Chen, D. (2018). \emph{CSRNet: Dilated Convolutional Neural Networks for Understanding the Highly Congested Scenes}. CVPR.
+\item ShanghaiTech dataset, Kaggle: \texttt{tthien/shanghaitech}.
+\end{enumerate}
+\vspace{.4cm}
+Izveštaj: \texttt{reports/report.md}\\
+Protokol: \texttt{docs/hyperparameter-search.md}\\
+Govorne beleške: \texttt{presentation/speaker-notes.md}\\
+Kod: \url{https://github.com/fbrg141/csrnet-mcnn-crowd-counting}
+\end{frame}
 \end{document}

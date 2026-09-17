@@ -4,6 +4,13 @@
 
 ---
 
+> The hand-drawn numerical kernels below are illustrative, not verified normalized
+> arrays. For actual computation use `scipy.ndimage.gaussian_filter` or explicitly
+> normalize the sampled kernel. A continuous Gaussian integrates to one; a finite
+> discrete sample does not automatically sum to one. Gaussian filtering is not the
+> only normalized/separable smoothing method. Final experiments use sigma=15 for
+> Part A; this note's Part B examples do not describe the completed training scope.
+
 ## 7.1 The Gaussian Function
 
 

@@ -1,0 +1,13 @@
+batch_size,best_epoch,checkpoint,epochs,lr,model,momentum,num_workers,part,seed,smoke,trial_id,val_mae,val_rmse,weight_decay
+4,50,mcnn_partA_seed42_best.pth,50,1e-05,mcnn,0.95,0,A,42,False,trial-6ad69cb6b9f3e63e,467.0917561848958,830.2919927907575,0.0001
+4,50,mcnn_partA_seed42_best.pth,50,1e-05,mcnn,0.95,0,A,42,False,trial-d5787042a16b6ef9,467.10521799723307,830.295471892676,0.0
+4,50,mcnn_partA_seed42_best.pth,50,1e-05,mcnn,0.9,0,A,42,False,trial-77dab1e621447cf9,564.1439206441244,947.9823776073009,0.0
+4,50,mcnn_partA_seed42_best.pth,50,1e-05,mcnn,0.9,0,A,42,False,trial-ea7db7233131cb80,564.1699226379394,948.0008108507465,0.0001
+4,50,mcnn_partA_seed42_best.pth,50,3e-06,mcnn,0.95,0,A,42,False,trial-fdf9d737bfd78f1a,1004.2022399902344,1265.1235720197892,0.0
+4,50,mcnn_partA_seed42_best.pth,50,3e-06,mcnn,0.95,0,A,42,False,trial-528448960c0ebbdb,1004.2429962158203,1265.151091310144,0.0001
+4,50,mcnn_partA_seed42_best.pth,50,3e-06,mcnn,0.9,0,A,42,False,trial-1b409e5aed7e4218,2029.020157877604,2150.6911808922205,0.0
+4,50,mcnn_partA_seed42_best.pth,50,3e-06,mcnn,0.9,0,A,42,False,trial-59e0ce02b76ad6c9,2029.028466796875,2150.698113829081,0.0001
+4,50,mcnn_partA_seed42_best.pth,50,1e-06,mcnn,0.95,0,A,42,False,trial-b21607db206f86d4,2630.5536865234376,2718.6340806128587,0.0
+4,50,mcnn_partA_seed42_best.pth,50,1e-06,mcnn,0.95,0,A,42,False,trial-09f5fa87cb8fd4c2,2630.5550537109375,2718.6350803376654,0.0001
+4,50,mcnn_partA_seed42_best.pth,50,1e-06,mcnn,0.9,0,A,42,False,trial-cb25df13b061e5da,3426.5724365234373,3490.030182134475,0.0001
+4,50,mcnn_partA_seed42_best.pth,50,1e-06,mcnn,0.9,0,A,42,False,trial-24e75a36415baae0,3426.576521809896,3490.034236817802,0.0

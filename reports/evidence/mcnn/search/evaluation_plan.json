@@ -1,0 +1,41 @@
+{
+  "runs": [
+    {
+      "checkpoint_hash": "07c10e83d86dc6aad9e48acf2fbcaace60329f6a411768dba3e0b187513fb25e",
+      "directory": "trial-b21607db206f86d4",
+      "label": "baseline",
+      "seed": 42
+    },
+    {
+      "checkpoint_hash": "2e38b72cc36970d35dcf7665e973ee2cdff07bbf80d3c0629ee227d7ef2eec95",
+      "directory": "confirmation/trial-b21607db206f86d4-seed123",
+      "label": "baseline",
+      "seed": 123
+    },
+    {
+      "checkpoint_hash": "76b3cbc0b331a01bdf9a3e64b07b81fff6e8e0e9aba8561b0eccf2a4762b0b22",
+      "directory": "confirmation/trial-b21607db206f86d4-seed2026",
+      "label": "baseline",
+      "seed": 2026
+    },
+    {
+      "checkpoint_hash": "045d094e9b1bb9ccededa3bf8c708a1049e1f28f5b898b7e8ea5c820d5227fe4",
+      "directory": "trial-6ad69cb6b9f3e63e",
+      "label": "winner",
+      "seed": 42
+    },
+    {
+      "checkpoint_hash": "e4d42471048860b8176f6c5684ca8d5cb5acc07bd198302c181d0ca359b48f14",
+      "directory": "confirmation/trial-6ad69cb6b9f3e63e-seed123",
+      "label": "winner",
+      "seed": 123
+    },
+    {
+      "checkpoint_hash": "14f4d0189356ede297b0cdba458aa239ec4771b3a98ff3f128e92e2404d1b73b",
+      "directory": "confirmation/trial-6ad69cb6b9f3e63e-seed2026",
+      "label": "winner",
+      "seed": 2026
+    }
+  ],
+  "selection_hash": "7eecf15919d4794c29e369b0dea9809d6fd502435e92b01ce90911341da0dd57"
+}

@@ -28,6 +28,7 @@ from torch.utils.data import DataLoader
 from src.config import DENSITY_CACHE_DIR, MODEL_CONFIGS, REPORTS_DIR, SHANGHAITECH_DIR
 from src.datasets.dataset import CrowdCountingDataset
 from src.models import build_model
+from src.runs import atomic_json, file_hash
 from src.train import evaluate, experiment_stem, get_device, set_seed
 
 
@@ -91,6 +92,7 @@ def _make_fake_dataset(root: str | Path, part: str = "A", n: int = 6) -> str:
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Evaluate a trained model.")
+    parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
     parser.add_argument("--model", default="mcnn", choices=sorted(MODEL_CONFIGS))
     parser.add_argument("--part", default="A", choices=["A", "B"])
     parser.add_argument("--ckpt", default=None,
@@ -109,9 +111,10 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     set_seed(args.seed)
-    device = get_device()
+    device = get_device() if args.device == "auto" else torch.device(args.device)
 
-    model = build_model(args.model).to(device)
+    ckpt = {}
+    model = build_model(args.model, pretrained=False).to(device)
     n_params = sum(p.numel() for p in model.parameters())
 
     if args.smoke:
@@ -135,6 +138,8 @@ def main(argv: list[str] | None = None) -> None:
     test_loader = build_test_loader(args.model, args.part, args.root,
                                     use_cache=not args.no_cache,
                                     cache_dir=args.cache_dir)
+    if not args.smoke and ckpt.get("config", {}).get("smoke"):
+        test_loader.dataset.target_size = tuple(ckpt["config"]["image_size"])
     print(f"[device] {device}")
     print(f"[model] {args.model} params={n_params} "
           f"(ckpt epoch={ckpt_info['epoch']} val_mae={ckpt_info['val_mae']})")
@@ -160,7 +165,10 @@ def main(argv: list[str] | None = None) -> None:
         "ckpt_val_mae": ckpt_info["val_mae"],
         "ckpt_val_rmse": ckpt_info["val_rmse"],
     }
-    out_path.write_text(json.dumps(metrics, indent=2))
+    metrics["checkpoint_hash"] = file_hash(args.ckpt) if not args.smoke else None
+    metrics["config"] = ckpt.get("config") if not args.smoke else None
+    metrics["synthetic"] = args.smoke or bool((metrics["config"] or {}).get("smoke"))
+    atomic_json(out_path, metrics)
     print(f"[saved] {out_path}")
 
 

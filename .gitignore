@@ -1,4 +1,8 @@
 # Python
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 __pycache__/
 *.py[cod]
 *.so
@@ -24,6 +28,28 @@ runs/
 logs/
 *.pth
 *.pt
+*.ckpt
+*.safetensors
+
+# Local run workspaces: curate small original evidence under reports/evidence/.
+# Keep completed local directories intact for resume, but never stage them wholesale.
+/reports/search/
+/reports/baselines/
+/reports/*_local_*/
+/reports/*_smoke_metrics.json
+
+# Source/result deliveries belong outside the repo; curated evidence is unpacked.
+*.zip
+*.tar
+*.tar.gz
+/dist/
+/build/
+*.tmp
+
+# Local credentials
+.env
+.env.*
+!.env.example
 
 # OS / editor
 .DS_Store
